@@ -1,5 +1,5 @@
 params:
-  n_epochs: 15 #
+  n_epochs: 15 
   batch_size: 32
   optimizer: sgd # only sgd can be used for stfpm, but write here explictly for clarity
   momentum: 0.9 # Standard value for sgd optimizer
