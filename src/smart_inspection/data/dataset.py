@@ -1,5 +1,5 @@
 from smart_inspection.config.loader import resolve_config_paths
-
+from pathlib import Path
 
 class AnomalyDataset:
     def __init__(self, category: str, split: str):
@@ -18,10 +18,16 @@ class AnomalyDataset:
         self.samples = self._discover_samples(split_path)  # Pass the split_path to the method
 
 
-        pass  # TODO : Implement the logic
+    def _discover_samples(self, split_path: Path) -> list:
+        samples = []
+        for p in split_path.iterdir():
+            if not p.is_dir():
+                continue
+            if p.name == "good":
+                label = 0
+            else:
+                label = 1
 
-    def _discover_samples(self, split_path) -> list:
-        pass  # TODO : Implement the logic
 
     def __len__(self) -> int:
         pass  # TODO : Implement the logic
