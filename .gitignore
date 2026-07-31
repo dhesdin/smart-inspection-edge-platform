@@ -26,7 +26,7 @@ build/
 *.egg-info/
 
 
-# Artifacts
+# Artifacts 
 outputs/*
 !outputs/models/
 !outputs/models/.gitkeep
@@ -36,6 +36,8 @@ outputs/*
 !outputs/reports/.gitkeep
 !outputs/logs/
 !outputs/logs/.gitkeep
+
+
 # Weights of models:
 *.pth
 *.pt
