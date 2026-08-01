@@ -1,5 +1,4 @@
 from pathlib import Path
-import yaml
 from smart_inspection.data.dataset import AnomalyDataset
 
 
