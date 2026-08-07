@@ -1,12 +1,10 @@
-from torch import Tensor, nn
 import torch
+import torchvision.models as models
+from torch import Tensor
 from torch.utils.data import DataLoader
 
-import torchvision.models as models
-
-
-from smart_inspection.models.base import AnomalyMethod
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
+from smart_inspection.models.base import AnomalyMethod
 
 
 class PaDiM(AnomalyMethod):
@@ -15,17 +13,24 @@ class PaDiM(AnomalyMethod):
         # get conf and merge
         common_yaml_conf = resolve_config_paths(config_path="common.yaml")
         padim_yaml_conf = read_yaml(config_path="padim.yaml")
-        merge_yaml_dict = merge_yaml(
-            common_config=common_yaml_conf, model_config=padim_yaml_conf
-        )
+        merge_yaml_dict = merge_yaml(common_config=common_yaml_conf, model_config=padim_yaml_conf)
         params_common = merge_yaml_dict["params"]
         backbone = params_common["backbone"]
         layers = params_common["layers"]
+        self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
 
-        # load and config resnet
+        # load resnet
         self.resnet = getattr(models, backbone)(weights="DEFAULT")
+
+        # device get attr
+        self.resnet.to(self.device)
+        # freeze
+
         for param in self.resnet.parameters():
             param.requires_grad = False
+
+        # eval
+        self.resnet.eval()
 
         # hook
         self.features = {}
@@ -39,9 +44,7 @@ class PaDiM(AnomalyMethod):
                 A hook function that captures the output features of the specified layer.
             """
 
-            def hook(
-                module: torch.nn.Module, input: tuple[Tensor], output: Tensor
-            ) -> None:
+            def hook(module: torch.nn.Module, input: tuple[Tensor], output: Tensor) -> None:
                 """
                 Hook function to capture the output features of the specified layer.
                 Args:
@@ -65,6 +68,7 @@ class PaDiM(AnomalyMethod):
             train_loader (DataLoader): The training data loader.
         """
         pass
+
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
 
         pass
