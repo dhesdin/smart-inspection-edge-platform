@@ -1,5 +1,6 @@
 import torch
 import torchvision.models as models
+import torch.nn.functional as F
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -13,11 +14,15 @@ class PaDiM(AnomalyMethod):
         # get conf and merge
         common_yaml_conf = resolve_config_paths(config_path="common.yaml")
         padim_yaml_conf = read_yaml(config_path="padim.yaml")
-        merge_yaml_dict = merge_yaml(common_config=common_yaml_conf, model_config=padim_yaml_conf)
+        merge_yaml_dict = merge_yaml(
+            common_config=common_yaml_conf, model_config=padim_yaml_conf
+        )
         params_common = merge_yaml_dict["params"]
         backbone = params_common["backbone"]
-        layers = params_common["layers"]
-        self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
+        self.layers = params_common["layers"]
+        self.device = torch.device(
+            params_common["device"] if torch.cuda.is_available() else "cpu"
+        )
 
         # load resnet
         self.resnet = getattr(models, backbone)(weights="DEFAULT")
@@ -44,7 +49,9 @@ class PaDiM(AnomalyMethod):
                 A hook function that captures the output features of the specified layer.
             """
 
-            def hook(module: torch.nn.Module, input: tuple[Tensor], output: Tensor) -> None:
+            def hook(
+                module: torch.nn.Module, input: tuple[Tensor], output: Tensor
+            ) -> None:
                 """
                 Hook function to capture the output features of the specified layer.
                 Args:
@@ -57,7 +64,7 @@ class PaDiM(AnomalyMethod):
             return hook
 
         # loop from conf and register hook for each layer
-        for layer_name in layers:
+        for layer_name in self.layers:
             layer = getattr(self.resnet, layer_name)
             layer.register_forward_hook(make_hook(layer_name=layer_name))
 
@@ -67,7 +74,40 @@ class PaDiM(AnomalyMethod):
         Args:
             train_loader (DataLoader): The training data loader.
         """
-        pass
+        # === First step : accumulate the tensors of the features for each layer in a dictionary of lists ===
+        features_accumulator = {layer_name: [] for layer_name in self.layers}
+        # forward pass through the training data to collect features
+        for batch in train_loader:
+            images = batch["image"].to(self.device)
+            self.resnet(images)  # forward
+            for layer_name, feature in self.features.items():
+                features_accumulator[layer_name].append(feature)
+        # === Second step : convert the list of features tensors to single one  ===
+        for layer_name, features_list in features_accumulator.items():
+            features_accumulator[layer_name] = torch.cat(tensors=features_list, dim=0)
+
+        # === Thir step : upsampling all layers ===
+        target_size = features_accumulator[self.layers[0]].shape[2:]
+
+        for layer_name in self.layers[1:]:
+            layer_upsampled = F.interpolate(
+                features_accumulator[layer_name], size=target_size, mode="bilinear"
+            )
+            features_accumulator[layer_name] = layer_upsampled
+        # === Fourth step : concat layers into a single layer for channels ===
+        feature_concat = torch.cat(
+            tensors=[features_accumulator[layer_name] for layer_name in self.layers],
+            dim=1,
+        )
+        # layer_to_concat = []
+        # for layer_name in self.layers:
+        #     layer_to_concat.append(features_accumulator[layer_name])
+
+        # feature_concat = torch.cat(tensors=layer_to_concat, dim=1)
+        self.embeddings = feature_concat
+        # === fifth step :mean and covariance ===
+
+
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
 
