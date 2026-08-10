@@ -99,15 +99,27 @@ class PaDiM(AnomalyMethod):
             tensors=[features_accumulator[layer_name] for layer_name in self.layers],
             dim=1,
         )
-        # layer_to_concat = []
-        # for layer_name in self.layers:
-        #     layer_to_concat.append(features_accumulator[layer_name])
-
-        # feature_concat = torch.cat(tensors=layer_to_concat, dim=1)
         self.embeddings = feature_concat
-        # === fifth step :mean and covariance ===
+        # === fifth step :permute and reshape from (N,C,H,W) to (H*W, N, C) (2D -> 1D - flat) ===
+        self.embeddings = self.embeddings.permute(2, 3, 0, 1)
+        self.embeddings = self.embeddings.reshape(
+            self.embeddings.shape[0] * self.embeddings.shape[1],
+            self.embeddings.shape[2],
+            self.embeddings.shape[3],
+        )
 
+        # === sixth step :Mean and cov ===
+        self.mean = torch.mean(self.embeddings, dim=1)  # (HW,C)
 
+        # cov --> https://arxiv.org/abs/2011.08785 --> Σij = 1 N − 1 X N k=1 (x k ij − µij)(x k ij − µij) T + eI
+        mean = self.mean.unsqueeze(
+            dim=1
+        )  # (HW,1,C) for substraction between embeddings and mean
+        centered = self.embeddings - mean  # (HW,N,C)
+
+        transposed = centered.transpose(1, 2)  # (HW,C,N)
+        cov = torch.matmul(transposed, centered)  # (C,N) @ (N,C) -> (C,C)
+        self.cov = cov / (self.embeddings.shape[1] - 1)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
 

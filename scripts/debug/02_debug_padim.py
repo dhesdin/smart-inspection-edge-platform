@@ -17,6 +17,8 @@ params_common = params_common_dict["params"]
 backbone = params_common["backbone"]
 device = params_common["device"]
 layers = params_common["layers"]
+batch_size = params_common["batch_size"]
+
 
 anomaly_dataset = AnomalyDataset(category="bottle", split="test")
 padim = PaDiM()
@@ -47,10 +49,21 @@ else:
 # Functional hooks: real image from AnomalyDataset, check that padim.features contains the expected keys.
 
 image = anomaly_dataset[0]["image"]  # Tensor of shape (C,H,W)
-# print(image_key)
+print(f" [MODEL] --> Image shape before unsqueeze: {image.shape}")
 image = image.unsqueeze(0)  # Add batch dimension (B(1),C,H,W)
-# print(image)
+print(f" [MODEL] --> Image shape after unsqueeze: {image.shape}")
 image = image.to(padim.device)
 padim.resnet(image)  # forward pass to trigger hooks
 
 print(f" [MODEL] --> List of feature keys: {list(padim.features.keys())}")
+
+
+print("=============== [MODEL] --> Test fit method ===============")
+anomaly_dataset_train = AnomalyDataset(category="bottle", split="train")
+
+train_loader = torch.utils.data.DataLoader(dataset=anomaly_dataset_train, batch_size=batch_size, num_workers=0, shuffle=True, drop_last=False)
+
+padim.fit(train_loader=train_loader)
+print(f" [MODEL] --> Embeddings shape: {padim.embeddings.shape}")
+print(f" [MODEL] --> Mean shape: {padim.mean.shape}")
+print(f" [MODEL] --> Cov shape: {padim.cov.shape}")
