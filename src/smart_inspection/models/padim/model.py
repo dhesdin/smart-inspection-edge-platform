@@ -1,6 +1,7 @@
 import torch
-import torchvision.models as models
+import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
+import torchvision.models as models
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -17,15 +18,24 @@ class PaDiM(AnomalyMethod):
         merge_yaml_dict = merge_yaml(
             common_config=common_yaml_conf, model_config=padim_yaml_conf
         )
+
+        # get params
         params_common = merge_yaml_dict["params"]
-        backbone = params_common["backbone"]
+        param_backbone = params_common["backbone"]
+        self.param_n_features = params_common["n_features"]
+        param_seed = params_common["seed"]
+        param_cudnn_deterministic = params_common["cudnn_deterministic"]
+
+        # reproducibility
+        torch.manual_seed(param_seed)
+        cudnn.deterministic = param_cudnn_deterministic
+
         self.layers = params_common["layers"]
         self.device = torch.device(
             params_common["device"] if torch.cuda.is_available() else "cpu"
         )
-
         # load resnet
-        self.resnet = getattr(models, backbone)(weights="DEFAULT")
+        self.resnet = getattr(models, param_backbone)(weights="DEFAULT")
 
         # device get attr
         self.resnet.to(self.device)
@@ -77,11 +87,13 @@ class PaDiM(AnomalyMethod):
         # === First step : accumulate the tensors of the features for each layer in a dictionary of lists ===
         features_accumulator = {layer_name: [] for layer_name in self.layers}
         # forward pass through the training data to collect features
-        for batch in train_loader:
-            images = batch["image"].to(self.device)
-            self.resnet(images)  # forward
-            for layer_name, feature in self.features.items():
-                features_accumulator[layer_name].append(feature)
+
+        with torch.no_grad():  # disable gradient computation for efficiency
+            for batch in train_loader:
+                images = batch["image"].to(self.device)
+                self.resnet(images)  # forward
+                for layer_name, feature in self.features.items():
+                    features_accumulator[layer_name].append(feature)
         # === Second step : convert the list of features tensors to single one  ===
         for layer_name, features_list in features_accumulator.items():
             features_accumulator[layer_name] = torch.cat(tensors=features_list, dim=0)
@@ -93,8 +105,8 @@ class PaDiM(AnomalyMethod):
             layer_upsampled = F.interpolate(
                 features_accumulator[layer_name], size=target_size, mode="bilinear"
             )
+            # === Fourth step : concat layers into a single layer for channels ===
             features_accumulator[layer_name] = layer_upsampled
-        # === Fourth step : concat layers into a single layer for channels ===
         feature_concat = torch.cat(
             tensors=[features_accumulator[layer_name] for layer_name in self.layers],
             dim=1,
@@ -109,6 +121,13 @@ class PaDiM(AnomalyMethod):
         )
 
         # === sixth step :Mean and cov ===
+        # rand and keep only 100 first one
+        selected_indices = torch.randperm(self.embeddings.shape[2])[
+            : self.param_n_features
+        ]
+        self.embeddings = self.embeddings[
+            :, :, selected_indices
+        ]  # where C = param_n_features
         self.mean = torch.mean(self.embeddings, dim=1)  # (HW,C)
 
         # cov --> https://arxiv.org/abs/2011.08785 --> Σij = 1 N − 1 X N k=1 (x k ij − µij)(x k ij − µij) T + eI
@@ -119,7 +138,12 @@ class PaDiM(AnomalyMethod):
 
         transposed = centered.transpose(1, 2)  # (HW,C,N)
         cov = torch.matmul(transposed, centered)  # (C,N) @ (N,C) -> (C,C)
+
+        # identity matrix for avoid singular matrix and loop [i][i]
+        epsilon = 1e-2
+        identity_m = torch.eye(n=self.param_n_features, device=self.device)
         self.cov = cov / (self.embeddings.shape[1] - 1)
+        self.cov = self.cov + (epsilon * identity_m)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
 
