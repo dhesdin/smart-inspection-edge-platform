@@ -33,6 +33,9 @@ lint:
 	@echo "Runnin lint tests..."
 	.venv/bin/ruff check . && .venv/bin/ruff format --check .
 
+format: 
+	@echo "Running code formatting..."
+	.venv/bin/ruff format .
 
 clean:
 	@echo "WARNING ! : This will delete all models, and figures generate, all __pycache__ folders."

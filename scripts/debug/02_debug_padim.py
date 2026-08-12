@@ -71,7 +71,8 @@ train_loader = torch.utils.data.DataLoader(
 
 padim.fit(train_loader=train_loader)
 print(f" [MODEL] --> Embeddings shape: {padim.embeddings.shape}")
+print(f" [MODEL] --> Layers : {list(padim.features.keys())}")
 print(f" [MODEL] --> Mean shape: {padim.mean.shape}")
 print(f" [MODEL] --> Cov shape: {padim.cov.shape}")
-print(f" [MODEL] --> FIrst 5 values of mean: {padim.mean[:5]}")
-print(f" [MODEL] --> FIrst 5 values of cov: {padim.cov[:5]}")
+print(f" [MODEL] --> FFirst 2 values of mean: {padim.mean[:2]}")
+print(f" [MODEL] --> FFirst 2 values of cov: {padim.cov[:2]}")

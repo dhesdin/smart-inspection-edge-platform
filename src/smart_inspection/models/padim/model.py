@@ -15,9 +15,7 @@ class PaDiM(AnomalyMethod):
         # get conf and merge
         common_yaml_conf = resolve_config_paths(config_path="common.yaml")
         padim_yaml_conf = read_yaml(config_path="padim.yaml")
-        merge_yaml_dict = merge_yaml(
-            common_config=common_yaml_conf, model_config=padim_yaml_conf
-        )
+        merge_yaml_dict = merge_yaml(common_config=common_yaml_conf, model_config=padim_yaml_conf)
 
         # get params
         params_common = merge_yaml_dict["params"]
@@ -31,9 +29,7 @@ class PaDiM(AnomalyMethod):
         cudnn.deterministic = param_cudnn_deterministic
 
         self.layers = params_common["layers"]
-        self.device = torch.device(
-            params_common["device"] if torch.cuda.is_available() else "cpu"
-        )
+        self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
         # load resnet
         self.resnet = getattr(models, param_backbone)(weights="DEFAULT")
 
@@ -59,9 +55,7 @@ class PaDiM(AnomalyMethod):
                 A hook function that captures the output features of the specified layer.
             """
 
-            def hook(
-                module: torch.nn.Module, input: tuple[Tensor], output: Tensor
-            ) -> None:
+            def hook(module: torch.nn.Module, input: tuple[Tensor], output: Tensor) -> None:
                 """
                 Hook function to capture the output features of the specified layer.
                 Args:
@@ -102,9 +96,7 @@ class PaDiM(AnomalyMethod):
         target_size = features_accumulator[self.layers[0]].shape[2:]
 
         for layer_name in self.layers[1:]:
-            layer_upsampled = F.interpolate(
-                features_accumulator[layer_name], size=target_size, mode="bilinear"
-            )
+            layer_upsampled = F.interpolate(features_accumulator[layer_name], size=target_size, mode="bilinear")
             # === Fourth step : concat layers into a single layer for channels ===
             features_accumulator[layer_name] = layer_upsampled
         feature_concat = torch.cat(
@@ -122,18 +114,12 @@ class PaDiM(AnomalyMethod):
 
         # === sixth step :Mean and cov ===
         # rand and keep only 100 first one
-        selected_indices = torch.randperm(self.embeddings.shape[2])[
-            : self.param_n_features
-        ]
-        self.embeddings = self.embeddings[
-            :, :, selected_indices
-        ]  # where C = param_n_features
+        self.selected_indices = torch.randperm(self.embeddings.shape[2])[: self.param_n_features]
+        self.embeddings = self.embeddings[:, :, self.selected_indices]  # where C = param_n_features
         self.mean = torch.mean(self.embeddings, dim=1)  # (HW,C)
 
         # cov --> https://arxiv.org/abs/2011.08785 --> Σij = 1 N − 1 X N k=1 (x k ij − µij)(x k ij − µij) T + eI
-        mean = self.mean.unsqueeze(
-            dim=1
-        )  # (HW,1,C) for substraction between embeddings and mean
+        mean = self.mean.unsqueeze(dim=1)  # (HW,1,C) for substraction between embeddings and mean
         centered = self.embeddings - mean  # (HW,N,C)
 
         transposed = centered.transpose(1, 2)  # (HW,C,N)
@@ -146,5 +132,25 @@ class PaDiM(AnomalyMethod):
         self.cov = self.cov + (epsilon * identity_m)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
+        image = image.unsqueeze(0).to(device=self.device)  # add batch for forward
 
-        pass
+        with torch.no_grad():
+            self.resnet(image)
+
+        # === Upsampling ===
+        target_size = self.features[self.layers[0]].shape[2:]
+        for layer_name in self.layers[1:]:
+            layer_upsampled = F.interpolate(self.features[layer_name], size=target_size, mode="bilinear")
+            self.features[layer_name] = layer_upsampled
+        # === concat layers ===
+        features_concat = torch.cat(tensors=[self.features[layer_name] for layer_name in self.features], dim=1)
+        # === Permute and reshape ===
+        embeddings = features_concat  # (N,C,H,W)
+        embeddings = embeddings.permute(2, 3, 0, 1)  # (H,W,N,C)
+        embeddings = embeddings.reshape(embeddings.shape[0] * embeddings.shape[1], embeddings.shape[2] * embeddings.shape[3])  # (HW,C) (64*64, 1*448)
+
+        # === reduce channels ===
+        embeddings = embeddings[:, self.selected_indices]
+        # === Mahalanobis distance ===
+
+        # TODO
