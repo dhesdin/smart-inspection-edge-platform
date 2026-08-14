@@ -147,10 +147,31 @@ class PaDiM(AnomalyMethod):
         # === Permute and reshape ===
         embeddings = features_concat  # (N,C,H,W)
         embeddings = embeddings.permute(2, 3, 0, 1)  # (H,W,N,C)
-        embeddings = embeddings.reshape(embeddings.shape[0] * embeddings.shape[1], embeddings.shape[2] * embeddings.shape[3])  # (HW,C) (64*64, 1*448)
+        embeddings = embeddings.reshape(
+            embeddings.shape[0] * embeddings.shape[1],
+            embeddings.shape[2] * embeddings.shape[3],
+        )  # (HW,C) (64*64, 1*448)
 
         # === reduce channels ===
         embeddings = embeddings[:, self.selected_indices]
         # === Mahalanobis distance ===
+        # distance² = (x - µ)^T × Σ⁻¹ × (x - µ)   --> line * inv_mat_cov * column
 
-        # TODO
+        # centered = x-mu
+        centered = embeddings - self.mean
+        centered_line = centered.unsqueeze(dim=1)  # (HW,1,C)
+        centered_column = centered.unsqueeze(dim=2)  # (HW,C,1)
+
+        inv_cov_matrix = torch.linalg.inv(self.cov)  # (HW,C,C)
+
+        mahalanobis_intermediate = torch.matmul(inv_cov_matrix, centered_column)  # (HW,C,C) @ (HW,C,1)
+        square_distance = torch.matmul(centered_line, mahalanobis_intermediate)  # (HW,1,1)
+
+        # squeeze shape from (HW,1,1) to (HW)
+        square_distance = square_distance.squeeze()
+
+        # === Reshape for anomalymap and scalar value (signature) ===
+        anomaly_map = square_distance.reshape(target_size[0], target_size[1])
+        score_anomaly = anomaly_map.max().item()
+
+        return score_anomaly, anomaly_map
