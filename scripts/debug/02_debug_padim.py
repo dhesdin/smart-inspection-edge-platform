@@ -74,5 +74,31 @@ print(f" [MODEL] --> Embeddings shape: {padim.embeddings.shape}")
 print(f" [MODEL] --> Layers : {list(padim.features.keys())}")
 print(f" [MODEL] --> Mean shape: {padim.mean.shape}")
 print(f" [MODEL] --> Cov shape: {padim.cov.shape}")
-print(f" [MODEL] --> FFirst 2 values of mean: {padim.mean[:2]}")
-print(f" [MODEL] --> FFirst 2 values of cov: {padim.cov[:2]}")
+# print(f" [MODEL] --> FFirst 2 values of mean: {padim.mean[:2]}")
+# print(f" [MODEL] --> FFirst 2 values of cov: {padim.cov[:2]}")
+
+print("=============== [MODEL] --> Test predict method ===============")
+
+# find good label et not good label
+for i in range(len(anomaly_dataset)):
+    if anomaly_dataset[i]["label"] == 0:
+        good_image = anomaly_dataset[i]["image"]
+        print(f" [MODEL] --> Good image found at index {i}")
+        break
+
+print(f" Bad Image[0] label :  {anomaly_dataset[0]["label"]}")
+bad_image = anomaly_dataset[0]["image"]
+good_image = anomaly_dataset[63]["image"]
+
+print(bad_image.shape)
+print(good_image.shape)
+
+# predict
+b_score_anomaly, b_anomaly_map = padim.predict(image=bad_image)
+g_score_anomaly, g_anomaly_map = padim.predict(image=good_image)
+
+
+print(f" [MODEL] [BAD_IMAGE]--> Score Anomaly : {b_score_anomaly}")
+print(f" [MODEL] [BAD_IMAGE]--> Anomaly Map shape: {b_anomaly_map.shape}")
+print(f" [MODEL] [GOOD_IMAGE]--> Score Anomaly : {g_score_anomaly}")
+print(f" [MODEL] [GOOD_IMAGE]--> Anomaly Map shape: {g_anomaly_map.shape}")
