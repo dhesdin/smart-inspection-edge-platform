@@ -79,21 +79,31 @@ print(f" [MODEL] --> Cov shape: {padim.cov.shape}")
 
 print("=============== [MODEL] --> Test predict method ===============")
 
+good_image = None
+bad_image = None
 # find good label et not good label
 for i in range(len(anomaly_dataset)):
-    if anomaly_dataset[i]["label"] == 0:
-        good_image = anomaly_dataset[i]["image"]
-        print(f" [MODEL] --> Good image found at index {i}")
+    sample = anomaly_dataset[i]
+
+    if sample["label"] == 0 and good_image is None:
+        good_image = sample["image"]
+        print(f"[MODEL] --> Good image found at index {i}")
+
+    elif sample["label"] == 1 and bad_image is None:
+        bad_image = sample["image"]
+        print(f"[MODEL] --> Bad image found at index {i}")
+
+    if good_image is not None and bad_image is not None:
         break
 
-print(f" Bad Image[0] label :  {anomaly_dataset[0]["label"]}")
-bad_image = anomaly_dataset[0]["image"]
-good_image = anomaly_dataset[63]["image"]
 
-print(bad_image.shape)
-print(good_image.shape)
+print(f" [MODEL] --> Bad image shape : {bad_image.shape}")
+print(f" [MODEL] --> Good image shape : {good_image.shape}")
 
-# predict
+assert good_image is not None, "No good image found in the test dataset."
+assert bad_image is not None, "No bad image found in the test dataset."
+
+
 b_score_anomaly, b_anomaly_map = padim.predict(image=bad_image)
 g_score_anomaly, g_anomaly_map = padim.predict(image=good_image)
 

@@ -120,16 +120,11 @@ class PaDiM(AnomalyMethod):
 
         # cov --> https://arxiv.org/abs/2011.08785 --> Σij = 1 N − 1 X N k=1 (x k ij − µij)(x k ij − µij) T + eI
         mean = self.mean.unsqueeze(dim=1)  # (HW,1,C) for substraction between embeddings and mean
-        centered = self.embeddings - mean  # (HW,N,C)
 
-        transposed = centered.transpose(1, 2)  # (HW,C,N)
-        cov = torch.matmul(transposed, centered)  # (C,N) @ (N,C) -> (C,C)
+        self.cov = self._compute_covariance(embeddings=self.embeddings, mean=mean)  # (HW,C,C)
 
         # identity matrix for avoid singular matrix and loop [i][i]
-        epsilon = 1e-2
-        identity_m = torch.eye(n=self.param_n_features, device=self.device)
-        self.cov = cov / (self.embeddings.shape[1] - 1)
-        self.cov = self.cov + (epsilon * identity_m)
+        self.cov = self._regularize_covariance(cov=self.cov, epsilon=1e-2)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
         image = image.unsqueeze(0).to(device=self.device)  # add batch for forward
@@ -175,3 +170,35 @@ class PaDiM(AnomalyMethod):
         score_anomaly = anomaly_map.max().item()
 
         return score_anomaly, anomaly_map
+
+    @staticmethod
+    def _compute_covariance(embeddings: Tensor, mean: Tensor) -> Tensor:
+        """
+        Compute the covariance matrix of the embeddings.
+        Args:
+            embeddings (Tensor): The embeddings tensor of shape (HW, N, C).
+            mean (Tensor): The mean tensor of shape (HW, C).
+        Returns:
+            Tensor: The covariance matrix of shape (HW, C, C).
+        """
+        centered = embeddings - mean  # (HW,N,C)
+        transposed = centered.transpose(1, 2)  # (HW,C,N)
+        cov = torch.matmul(transposed, centered)  # (HW,C,N) @ (HW,N,C) -> (HW,C,C)
+        cov = cov / (embeddings.shape[1] - 1)
+
+        return cov
+
+    @staticmethod
+    def _regularize_covariance(cov: Tensor, epsilon: float = 1e-2) -> Tensor:
+        """
+        Regularize the covariance matrix by adding a small value to its diagonal elements.
+        Args:
+            cov (Tensor): The covariance matrix of shape (HW,C, C).
+            epsilon (float): The regularization parameter to add to the diagonal elements.
+        Returns:
+            Tensor: The regularized covariance matrix of shape (HW,C, C).
+        """
+        identity_m = torch.eye(n=cov.shape[1], device=cov.device)
+        cov = cov + (epsilon * identity_m)
+
+        return cov
