@@ -150,17 +150,7 @@ class PaDiM(AnomalyMethod):
         # === reduce channels ===
         embeddings = embeddings[:, self.selected_indices]
         # === Mahalanobis distance ===
-        # distance² = (x - µ)^T × Σ⁻¹ × (x - µ)   --> line * inv_mat_cov * column
-
-        # centered = x-mu
-        centered = embeddings - self.mean
-        centered_line = centered.unsqueeze(dim=1)  # (HW,1,C)
-        centered_column = centered.unsqueeze(dim=2)  # (HW,C,1)
-
-        inv_cov_matrix = torch.linalg.inv(self.cov)  # (HW,C,C)
-
-        mahalanobis_intermediate = torch.matmul(inv_cov_matrix, centered_column)  # (HW,C,C) @ (HW,C,1)
-        square_distance = torch.matmul(centered_line, mahalanobis_intermediate)  # (HW,1,1)
+        square_distance = self._compute_mahalanobis_distance(embeddings=embeddings, mean=self.mean, cov=self.cov)
 
         # squeeze shape from (HW,1,1) to (HW)
         square_distance = square_distance.squeeze()
@@ -202,3 +192,28 @@ class PaDiM(AnomalyMethod):
         cov = cov + (epsilon * identity_m)
 
         return cov
+
+    @staticmethod
+    def _compute_mahalanobis_distance(embeddings: Tensor, mean: Tensor, cov: Tensor) -> Tensor:
+        """
+        Compute the Mahalanobis distance between the embeddings and the mean using the covariance matrix.
+        Args:
+            embeddings (Tensor): The embeddings tensor of shape (HW, C).
+            mean (Tensor): The mean tensor of shape (HW, C).
+            cov (Tensor): The covariance matrix of shape (HW, C, C).
+        Returns:
+            Tensor: The Mahalanobis distance tensor of shape (HW, 1, 1).
+        """
+        # distance² = (x - µ)^T * Σ⁻¹ * (x - µ)   --> line * inv_mat_cov * column
+
+        # centered = x-mu
+        centered = embeddings - mean
+        centered_line = centered.unsqueeze(dim=1)  # (HW,1,C)
+        centered_column = centered.unsqueeze(dim=2)  # (HW,C,1)
+
+        inv_cov_matrix = torch.linalg.inv(cov)  # (HW,C,C)
+
+        mahalanobis_intermediate = torch.matmul(inv_cov_matrix, centered_column)  # (HW,C,C) @ (HW,C,1)
+        square_distance = torch.matmul(centered_line, mahalanobis_intermediate)  # (HW,1,C) @ (HW,C,1)
+
+        return square_distance
