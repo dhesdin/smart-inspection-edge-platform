@@ -9,6 +9,8 @@ from smart_inspection.models.base import AnomalyMethod
 
 
 class STFPM(AnomalyMethod):
+    # https://arxiv.org/pdf/2103.04257
+
     def __init__(self):
         super().__init__()
 

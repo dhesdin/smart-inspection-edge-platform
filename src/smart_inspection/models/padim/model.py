@@ -10,6 +10,8 @@ from smart_inspection.models.base import AnomalyMethod
 
 
 class PaDiM(AnomalyMethod):
+    # https://arxiv.org/abs/2011.08785
+
     def __init__(self):
         super().__init__()
         # get conf and merge
