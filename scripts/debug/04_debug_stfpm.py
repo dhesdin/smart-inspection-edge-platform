@@ -75,6 +75,29 @@ if all(
 else:
     print("[WEIGHTS] --> Teacher and Student weights are different, as expected")
 
-# print("=============== [MODEL] --> Test fit method ===============")
 
+# Functional hooks: real image from AnomalyDataset, check that stfpm.features contains the expected keys.
+image = anomaly_dataset[0]["image"]
+print(f" [MODEL - IMAGE] --> Image shape : {image.shape}")  # (C,H,W)
+image = image.unsqueeze(0)  # Add batch dimension
+print(f" [MODEL - IMAGE] --> Image shape after unsqueeze : {image.shape}")  # (B,C,H,W)
+image = image.to(stfpm.device)
+
+# Check that the hooks have captured the features
+stfpm.student(image)
+stfpm.teacher(image)
+
+print(
+    f" [MODEL - STUDENT] --> List features keys : {list(stfpm.student_features.keys())} "
+)
+print(
+    f" [MODEL - TEACHER] --> List features keys : {list(stfpm.teacher_features.keys())} "
+)
+
+for layer_name in stfpm.layers:
+    print(
+        f" {layer_name} : teacher: {stfpm.teacher_features[layer_name].shape}, student: {stfpm.student_features[layer_name].shape}"
+    )
+
+# print("=============== [MODEL] --> Test fit method ===============")
 # print("=============== [MODEL] --> Test predict method ===============")
