@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
@@ -23,13 +25,12 @@ class STFPM(AnomalyMethod):
         # get params
         params_common = merge_yaml_dict["params"]
         param_backbone = params_common["backbone"]
-        _param_epochs = params_common["n_epochs"]
-        _param_batch_size = params_common["batch_size"]
-        _param_optimizer = params_common["optimizer"]
-        _param_momentum = params_common["momentum"]
-        _param_learning_rate = params_common["learning_rate"]
-        _param_pre_trained = params_common["pre_trained"]
-        _param_validation_ratio = params_common["validation_ratio"]
+        self.param_epochs = params_common["n_epochs"]
+        self.param_batch_size = params_common["batch_size"]
+        self.param_optimizer = params_common["optimizer"]
+        self.param_momentum = params_common["momentum"]
+        self.param_learning_rate = params_common["learning_rate"]
+        self.param_validation_ratio = params_common["validation_ratio"]
         param_seed = params_common["seed"]
         param_cudnn_deterministic = params_common["cudnn_deterministic"]
         self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
@@ -91,14 +92,80 @@ class STFPM(AnomalyMethod):
             student_layer.register_forward_hook(make_hook(features_dict=self.student_features, layer_name=layer_name))
             teacher_layer.register_forward_hook(make_hook(features_dict=self.teacher_features, layer_name=layer_name))
 
-    def fit(self, train_loader: DataLoader) -> None:
+    def fit(self, train_loader: DataLoader, val_loader: DataLoader | None = None) -> None:
         """
         Fit the model using the provided training data loader.
+        TW : Requires_grad and device are in __init__
         Args:
             train_loader (DataLoader): The training data loader.
         """
-        # https://arxiv.org/pdf/2103.04257 --> Eq(3): ℓ(I_k) = Σ_{l=1}^L α_l × ℓ^l(I_k), with α_l ≥ 0
-        pass
+
+        if val_loader is None:
+            raise ValueError("STFPM.fit() requires a validation data loader.")
+        # Set the student model to training mode and initialize the optimizer
+        optimizer_class = getattr(torch.optim, self.param_optimizer.upper())
+        optimizer = optimizer_class(
+            params=self.student.parameters(),
+            lr=self.param_learning_rate,
+            momentum=self.param_momentum,
+        )
+
+        # best val to compare and save the best model during training
+        best_val_loss = None
+        best_student_state = None
+
+        for epoch in range(self.param_epochs):
+            self.student.train()
+            train_losses = []
+            for batch in train_loader:
+                # ====== TRAIN ====== #
+                # Load the input image from the batch
+                image = batch["image"].to(device=self.device)
+                optimizer.zero_grad()
+                # Forward pass through the teacher and student models
+                with torch.no_grad():
+                    self.teacher(image)
+                self.student(image)
+
+                total_loss = self._compute_total_loss()
+                # backward and step for student
+                total_loss.backward()
+                optimizer.step()
+
+                train_losses.append(total_loss)
+            mean_train_loss = sum(train_losses) / len(train_losses)
+
+            # ====== EVAL ====== #
+            val_losses = []
+            self.student.eval()
+
+            with torch.no_grad():
+                for batch in val_loader:
+                    image = batch["image"].to(device=self.device)
+
+                    self.teacher(image)
+                    self.student(image)
+
+                    total_loss = self._compute_total_loss()
+                    val_losses.append(total_loss)
+
+                mean_val_losses = sum(val_losses) / len(val_losses)
+            # ====== PRINT ====== #
+            print(
+                f"Epoch {epoch + 1}/{self.param_epochs}: Mean training loss: {mean_train_loss:.6f}"
+                + f" | Mean validation loss: {mean_val_losses:.6f}"
+            )
+
+            # ====== SAVE BEST MODEL ====== #
+            if best_val_loss is None or mean_val_losses < best_val_loss:
+                best_val_loss = mean_val_losses
+                best_student_state = copy.deepcopy(self.student.state_dict())
+                print(f"Epoch {epoch}: New best validation loss: {best_val_loss}")
+
+        # ====== RESTORE BEST MODEL ====== #
+        if best_student_state is None:
+            raise ValueError("No best student state found. Training might not have been performed.")
+        self.student.load_state_dict(best_student_state)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
 
@@ -150,3 +217,24 @@ class STFPM(AnomalyMethod):
         """
         # https://arxiv.org/pdf/2103.04257 --> Eq(2): ℓ^l(I_k) = (1 / (w_l × h_l)) × Σ_i Σ_j ℓ^l(I_k)_{ij}
         return loss.mean(dim=(2, 3))
+
+    def _compute_total_loss(self) -> Tensor:
+        """Compute the total STFPM distillation loss."""
+        # Compute the distillation loss for each layer
+        layer_losses = []
+        for layer_name in self.layers:
+            teacher_features = self.teacher_features[layer_name]
+            student_features = self.student_features[layer_name]
+
+            teacher_features = self._normalize_features(teacher_features)
+            student_features = self._normalize_features(student_features)
+
+            loss = self._compute_distillation_loss(teacher_features=teacher_features, student_features=student_features)
+            mean_loss = self._compute_spatial_mean_loss(loss=loss)
+            layer_losses.append(mean_loss)
+            # https://arxiv.org/pdf/2103.04257 --> Eq(3): ℓ(I_k) = Σ_{l=1}^L α_l × ℓ^l(I_k), with α_l ≥ 0
+            # α_l in papers is equal to 1
+
+        total_loss = sum(layer_losses)  # sum image[layer] : img1[layer1] + img1[layer2] + ... : shape (B,1)
+        total_loss = total_loss.mean()  # mean over the batch dim : shape (1)
+        return total_loss

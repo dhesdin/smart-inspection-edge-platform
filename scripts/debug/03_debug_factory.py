@@ -1,13 +1,12 @@
 import torch
+
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.data.dataset import AnomalyDataset
 from smart_inspection.models.factory import create_method
 
 common_yaml_conf = resolve_config_paths(config_path="common.yaml")
 padim_yaml_conf = read_yaml(config_path="padim.yaml")
-params_common_dict = merge_yaml(
-    common_config=common_yaml_conf, model_config=padim_yaml_conf
-)
+params_common_dict = merge_yaml(common_config=common_yaml_conf, model_config=padim_yaml_conf)
 
 params_common = params_common_dict["params"]
 backbone = params_common["backbone"]
@@ -72,9 +71,5 @@ print(f" [MODEL] --> Anomaly map for bad image : {b_anomaly_map.shape}")
 print(f" [MODEL] --> Anomaly score for good image : {g_score_anomaly}")
 print(f" [MODEL] --> Anomaly map for good image : {g_anomaly_map.shape}")
 
-print(
-    f" [MODEL] --> Comparison of anomaly scores : {b_score_anomaly} > {g_score_anomaly}"
-)
-assert (
-    b_score_anomaly > g_score_anomaly
-), "Anomaly score for bad image should be greater than that for good image."
+print(f" [MODEL] --> Comparison of anomaly scores : {b_score_anomaly} > {g_score_anomaly}")
+assert b_score_anomaly > g_score_anomaly, "Anomaly score for bad image should be greater than that for good image."

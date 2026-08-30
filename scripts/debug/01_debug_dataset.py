@@ -1,9 +1,9 @@
 from pathlib import Path
 
-import torch
-from smart_inspection.data.dataset import AnomalyDataset
 from PIL import Image
 from torchvision.transforms import ToTensor
+
+from smart_inspection.data.dataset import AnomalyDataset
 
 anomaly_dataset = AnomalyDataset(category="bottle", split="test")
 
@@ -18,12 +18,7 @@ test_broken_small_samples = list(path_to_dataset.glob("broken_small/*.png"))
 test_contamination_samples = list(path_to_dataset.glob("contamination/*.png"))
 test_good_samples = list(path_to_dataset.glob("good/*.png"))
 
-total_samples = (
-    len(test_broken_large_samples)
-    + len(test_broken_small_samples)
-    + len(test_contamination_samples)
-    + len(test_good_samples)
-)
+total_samples = len(test_broken_large_samples) + len(test_broken_small_samples) + len(test_contamination_samples) + len(test_good_samples)
 print(f"Total number of samples: {total_samples}")
 
 
@@ -34,14 +29,14 @@ count_stop_anomaly = 0
 for sample in anomaly_dataset.samples:
     if sample["label"] == 1 and count_stop_anomaly < 3:
         print(" ==== LABEL 1 ====")
-        print(f"Sample with label 1:")
+        print("Sample with label 1:")
         print(f"  Image Path: {sample['images_path']}")
         print(f"  Label: {sample['label']}")
         print(f"  Mask Path: {sample['mask_path']}")
         count_stop_anomaly += 1
     elif sample["label"] == 0 and count_stop_good < 3:
         print(" ==== LABEL 0 ====")
-        print(f"Sample with label 0:")
+        print("Sample with label 0:")
         print(f"  Image Path: {sample['images_path']}")
         print(f"  Label: {sample['label']}")
         print(f"  Mask Path: {sample['mask_path']}")
@@ -83,7 +78,8 @@ print(f"Shape size of the sample mask: {sample['mask'].shape}")
 print("\n === VERIFICATION OF THE MASK ===")
 print(f" Verification that the mask is a tensor of zeros {sample['mask'].sum() == 0}")
 
-# Vérifie que les valeurs de image sont bien dans une plage cohérente avec la normalisation ImageNet (pas entre 0 et 1, mais des valeurs qui peuvent être négatives — signe que Normalize a bien été appliqué après ToTensor)
+# Verify that the values of the image are within a coherent range
+#  with the ImageNet normalization (not between 0 and 1, but values that can be negative
 print("=== VERIFICATION OF THE IMAGE ===")
 print(f"Min value of the sample image: {sample['image'].min()}")
 print(f"Max value of the sample image: {sample['image'].max()}")

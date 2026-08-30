@@ -74,7 +74,7 @@ class PaDiM(AnomalyMethod):
             layer = getattr(self.resnet, layer_name)
             layer.register_forward_hook(make_hook(layer_name=layer_name))
 
-    def fit(self, train_loader: DataLoader) -> None:
+    def fit(self, train_loader: DataLoader, val_loader: DataLoader | None = None) -> None:
         """
         Fit the model using the provided training data loader.
         Args:

@@ -42,7 +42,7 @@ include = ["smart_inspection*"]
 [tool.ruff]
 line-length = 150
 target-version = "py310"
-include = ["src/**/*.py", "tests/**/*.py"]
+include = ["src/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 exclude = [".git", "__pycache__", "build", "dist"]
 
 [tool.ruff.lint]

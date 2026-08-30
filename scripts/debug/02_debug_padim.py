@@ -1,17 +1,12 @@
-from pathlib import Path
-
 import torch
+
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.data.dataset import AnomalyDataset
 from smart_inspection.models.padim.model import PaDiM
-from PIL import Image
-from torchvision.transforms import ToTensor
 
 common_yaml_conf = resolve_config_paths(config_path="common.yaml")
 padim_yaml_conf = read_yaml(config_path="padim.yaml")
-params_common_dict = merge_yaml(
-    common_config=common_yaml_conf, model_config=padim_yaml_conf
-)
+params_common_dict = merge_yaml(common_config=common_yaml_conf, model_config=padim_yaml_conf)
 
 params_common = params_common_dict["params"]
 backbone = params_common["backbone"]
@@ -25,15 +20,9 @@ padim = PaDiM()
 
 # Config loaded : display backbone, layers, device of yaml
 # Model : display backbone type, name, device of padim and real device of a parameter from padim
-print(
-    f"[YAML] -->  Backbone : {params_common['backbone']}, layers : {params_common['layers']}, device : {params_common['device']}"
-)
-print(
-    f" [MODEL] --> Backbone type : {type(padim.resnet)}, Backbone name : {padim.resnet.__class__.__name__}"
-)
-print(
-    f" [MODEL] --> Device : {padim.device}, Real device of a parameter : {next(padim.resnet.parameters()).device}"
-)
+print(f"[YAML] -->  Backbone : {params_common['backbone']}, layers : {params_common['layers']}, device : {params_common['device']}")
+print(f" [MODEL] --> Backbone type : {type(padim.resnet)}, Backbone name : {padim.resnet.__class__.__name__}")
+print(f" [MODEL] --> Device : {padim.device}, Real device of a parameter : {next(padim.resnet.parameters()).device}")
 
 # Freeze backbone: loop on padim resnet params
 if all(not param.requires_grad for param in padim.resnet.parameters()):

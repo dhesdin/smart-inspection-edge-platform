@@ -1,4 +1,4 @@
-.PHONY: help setup test lint clean
+.PHONY: help setup test lint format clean
 
 PYTHON := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
 

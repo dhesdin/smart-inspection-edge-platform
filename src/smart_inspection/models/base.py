@@ -10,18 +10,19 @@ class AnomalyMethod(ABC):
     """
 
     @abstractmethod
-    def fit(self, train_loader: DataLoader) -> None:
+    def fit(self, train_loader: DataLoader, val_loader: DataLoader | None = None) -> None:
         """
         Fit the model using the provided training data loader.
         Args:
             train_loader (DataLoader): The training data loader.
+            val_loader (DataLoader | None, optional): The validation data loader. Defaults to None.
         """
         pass
 
     @abstractmethod
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
         """
-        Predict anomalies using the provided test data loader.
+        Predict anomalies for the given input image.
         Args:
             image (Tensor): The input image for anomaly prediction.
 
