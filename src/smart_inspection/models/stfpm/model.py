@@ -25,6 +25,10 @@ class STFPM(AnomalyMethod):
         # get params
         params_common = merge_yaml_dict["params"]
         param_backbone = params_common["backbone"]
+        self.param_input_size = (
+            params_common["input_size"],
+            params_common["input_size"],
+        )
         self.param_epochs = params_common["n_epochs"]
         self.param_batch_size = params_common["batch_size"]
         self.param_optimizer = params_common["optimizer"]
@@ -168,8 +172,46 @@ class STFPM(AnomalyMethod):
         self.student.load_state_dict(best_student_state)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
+        # 3.3 Section of papers
+        """
+        Predict the anomaly score and anomaly map for a given input image.
 
-        pass
+        Args:
+            image (Tensor): The input image tensor of shape (C, H, W).
+
+        Returns:
+            tuple[float, Tensor]: A tuple containing the anomaly score (float) and the anomaly map (Tensor).
+        """
+        # forward teacher/student but w/o optimizer backward
+        self.student.eval()
+        image = image.unsqueeze(dim=0).to(device=self.device)
+        target_size = self.param_input_size
+        with torch.no_grad():
+            self.teacher(image)
+            self.student(image)
+        # a loop on self layers for compute
+        layer_losses = []
+        for layer_name in self.layers:
+            student_features = self._normalize_features(self.student_features[layer_name])
+            teacher_features = self._normalize_features(self.teacher_features[layer_name])
+            loss_dist = self._compute_distillation_loss(teacher_features=teacher_features, student_features=student_features)
+
+            # Upsampling each layer toward the size on input image
+            loss_dist = F.interpolate(input=loss_dist, size=target_size, mode="bilinear")
+
+            layer_losses.append(loss_dist)
+
+        # product (element-wise) of the 3 upsampled feature maps
+        anomaly_map = layer_losses[0]
+        for loss_map in layer_losses[1:]:
+            anomaly_map *= loss_map
+
+        # from (B,1,H,W to (H,W))
+        anomaly_map = anomaly_map.squeeze()
+        # Papers -> maximum value of the element-wise product across the spatial dimensions.
+        score = anomaly_map.max().item()
+
+        return score, anomaly_map
 
     @staticmethod
     def _normalize_features(features: Tensor) -> Tensor:

@@ -71,7 +71,7 @@ for layer_name in stfpm.layers:
 
 print("=============== [MODEL] --> Test fit method ===============")
 # ovverride for quick debug run, real training uses 100 from config
-stfpm.param_epochs = 4
+stfpm.param_epochs = 10
 
 anomaly_dataset_train = AnomalyDataset(category="bottle", split="train")
 
@@ -84,4 +84,35 @@ stfpm.fit(train_loader=train_loader, val_loader=valid_loader)
 
 print(" [MODEL] --> Finished testing fit method")
 
-# print("=============== [MODEL] --> Test predict method ===============")
+print("=============== [MODEL] --> Test predict method ===============")
+
+good_image = None
+bad_image = None
+
+# find good label et not good label
+for i in range(len(anomaly_dataset)):
+    sample = anomaly_dataset[i]
+
+    if sample["label"] == 0 and good_image is None:
+        good_image = sample["image"]
+        print(f"[MODEL] --> Good image found at index {i}")
+
+    elif sample["label"] == 1 and bad_image is None:
+        bad_image = sample["image"]
+        print(f"[MODEL] --> Bad image found at index {i}")
+
+    if good_image is not None and bad_image is not None:
+        break
+
+
+print(f" [MODEL] --> Bad image shape : {bad_image.shape}")
+print(f" [MODEL] --> Good image shape : {good_image.shape}")
+
+assert good_image is not None, "No good image found in the test dataset."
+assert bad_image is not None, "No bad image found in the test dataset."
+
+
+b_score_anomaly, b_anomaly_map = stfpm.predict(image=bad_image)
+g_score_anomaly, g_anomaly_map = stfpm.predict(image=good_image)
+print(f" [MODEL] --> Bad image anomaly score : {b_score_anomaly}" + f" | Bad image anomaly map shape : {b_anomaly_map.shape}")
+print(f" [MODEL] --> Good image anomaly score : {g_score_anomaly}" + f" | Good image anomaly map shape : {g_anomaly_map.shape}")
