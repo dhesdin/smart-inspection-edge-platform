@@ -13,7 +13,6 @@ params_common = params_common_dict["params"]
 backbone = params_common["backbone"]
 device = params_common["device"]
 
-
 anomaly_dataset = AnomalyDataset(category="bottle", split="test")
 stfpm = STFPM()
 
@@ -72,10 +71,10 @@ for layer_name in stfpm.layers:
 print("=============== [MODEL] --> Test fit method ===============")
 # ovverride for quick debug run, real training uses 100 from config
 stfpm.param_epochs = 10
-
+random_state = 42
 anomaly_dataset_train = AnomalyDataset(category="bottle", split="train")
 
-train_set, valid_set = train_test_split(anomaly_dataset_train, test_size=0.2)
+train_set, valid_set = train_test_split(anomaly_dataset_train, test_size=0.2, random_state=random_state)
 
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=32, shuffle=True, num_workers=0, drop_last=False)
 valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=32, shuffle=False, num_workers=0, drop_last=False)
