@@ -40,7 +40,7 @@ anomaly_dataset_test = AnomalyDataset(category="bottle", split="test")
 
 good_image = None
 bad_image = None
-# find good label et not good label
+# find good label and not good label
 for i in range(len(anomaly_dataset_test)):
     sample = anomaly_dataset_test[i]
 

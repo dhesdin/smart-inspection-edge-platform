@@ -59,8 +59,8 @@ def test_mahalanobis_distance():
     is computed correctly.
     """
 
-    # distance² = (x - µ)^T * Σ⁻¹ * (x - µ)   --> line * inv_mat_cov * column
-    # Build Identity matrix for avoid the sigma bc I⁻1 = I --> (x - µ)^T * (x - µ)
+    # distance² = (x - µ)^T * Σ⁻¹ * (x - µ)   --> row * inv_mat_cov * column
+    # Build Identity matrix to avoid the sigma bc I⁻1 = I --> (x - µ)^T * (x - µ)
 
     embeddings = torch.tensor([[3, 4]], dtype=torch.float32)  # (HW,C) -> (1,2)
     mean = torch.tensor([[1, 1]], dtype=torch.float32)  # (HW,C) -> (1,2)

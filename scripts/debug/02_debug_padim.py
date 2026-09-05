@@ -70,7 +70,7 @@ print("=============== [MODEL] --> Test predict method ===============")
 
 good_image = None
 bad_image = None
-# find good label et not good label
+# find good label and not good label
 for i in range(len(anomaly_dataset)):
     sample = anomaly_dataset[i]
 

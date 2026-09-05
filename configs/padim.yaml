@@ -1,3 +1,2 @@
 params:
   n_features: 100 # To adjust for memory cost.  "100" -> default value from Papers. 100 features randomly takes from n_dim for covariance
-  batch_size: 32 # Not influenced here for accuracy, only for memory cost

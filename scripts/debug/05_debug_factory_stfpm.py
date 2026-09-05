@@ -1,5 +1,5 @@
 import torch
-from sklearn.model_selection import train_test_split
+from torch.utils.data import random_split
 
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.data.dataset import AnomalyDataset
@@ -22,11 +22,19 @@ print(f" [MODEL] --> Verification of type : {type(stfpm)}")
 
 
 print("=============== [MODEL] --> Test fit method ===============")
+# override for quick debug run, real training uses n_epochs from config
 stfpm.param_epochs = 10
-random_state = 42
+seed = params_common["seed"]
+validation_split_ratio = params_common["validation_split_ratio"]
 
-
-train_set, valid_set = train_test_split(anomaly_dataset_train, test_size=0.2, random_state=random_state)
+n_total = len(anomaly_dataset_train)
+n_val = int(n_total * validation_split_ratio)
+n_train = n_total - n_val
+train_set, valid_set = random_split(
+    anomaly_dataset_train,
+    [n_train, n_val],
+    generator=torch.Generator().manual_seed(seed),
+)
 train_loader = torch.utils.data.DataLoader(
     dataset=train_set,
     batch_size=params_common["batch_size"],
@@ -50,7 +58,7 @@ anomaly_dataset_test = AnomalyDataset(category="bottle", split="test")
 
 good_image = None
 bad_image = None
-# find good label et not good label
+# find good label and not good label
 for i in range(len(anomaly_dataset_test)):
     sample = anomaly_dataset_test[i]
 

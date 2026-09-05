@@ -403,7 +403,7 @@ Finalisation du chantier `factory.py`/PaDiM entamé la veille (`03_debug_factory
 
 **Problème :** je pensais qu'il fallait boucler explicitement sur chaque position spatiale `(i,j)` pour appliquer la normalisation, comme le suggérait la notation indicielle du papier.
 
-**Résolution :** Compréhension de ce que fait  PyTorch "sous le capot" - une boucle existe bien, mais écrite en C++/CUDA compilée, exécutée en parallèle massif sur GPU, pas en Python interprété.
+**Résolution :** Compréhension de ce que fait PyTorch "sous le capot" - une boucle existe bien, mais écrite en C++/CUDA compilée, exécutée en parallèle massif sur GPU, pas en Python interprété.
 
 #### `state_dict()` par référence vs `copy.deepcopy`
 
@@ -426,3 +426,37 @@ Produit element-wise et somme pondérée entre couches (Eq. 3) volontairement **
 ### 5. Ce que j'ai appris
 
 Sur le plan technique, j'ai consolidé ma compréhension de la distillation de connaissance (knowledge distillation) au-delà du cas de STFPM : un student qui n'apprend que sur des données normales n'a statistiquement aucune raison de bien généraliser sur des patterns jamais vus, ce qui est le principe fondateur de toute la détection d'anomalie par distillation - mais j'ai aussi identifié moi-même une limite réelle à cette hypothèse (un student qui généraliserait "trop bien" pourrait produire un faux négatif), ce qui m'a permis de comprendre que c'est un pari empirique validé par les résultats du papier, pas une garantie mathématique absolue.
+
+---
+
+# Journal de bord - Smart Inspection Edge Platform
+
+## Date : début septembre 2026 (training/ + evaluation/)
+
+### Contexte
+
+`training/train.py` (orchestrateur générique) + `evaluation/evaluate.py` (AUROC sur test set complet). Remplace le ratio bad/good à 2 échantillons par une métrique statistiquement valide, comparable entre PaDiM et STFPM.
+
+### Réalisations
+
+- Property abstraite `validation_split_ratio` (`float | None`) sur `AnomalyMethod` : PaDiM --> `None`, STFPM --> son ratio config. Permet à `train()` de rester générique.
+- `train()` : split conditionnel (`random_split`), `drop_last=False` forcé sur val_loader, guard clauses (ratio hors (0,1), split vide, loader vide), un seul `Generator(seed)` partagé entre split et shuffle du train_loader (y compris sans split, cas PaDiM) --> reproductibilité complète.
+- `batch_size` sorti des yaml spécifiques --> `common.yaml` seul, argument obligatoire de `train()` : paramètre d'exécution générique, pas structurel (contrairement à `validation_split_ratio`) --> pas ajouté à `AnomalyMethod`.
+- `evaluate()` : dé-batch image par image pour `predict()`, guard clauses (loader vide / classe unique)
+- Validé empiriquement : `06_debug_training.py` (86% poids student changés, état interne PaDiM non nul), `07_debug_evaluate.py` (AUROC STFPM 0.996 / PaDiM 0.993, 10 epochs, run de validation pipeline - pas le run définitif).
+
+### Difficultés
+
+- J'avais supprimé par erreur la garde "classe unique" dans `evaluate.py`.
+- **AUROC non proche de 0.5** : le premier signale une inversion de convention (label/score), le second une vraie absence de discrimination. `1 - 0.15 = 0.85` : diagnostic à corriger, pas modèle à réentraîner.
+
+### Décisions clés
+
+- `validation_split_ratio` en property abstraite plutôt que `isinstance`/YAML rouvert dans `train()`
+- `batch_size` diffère de `validation_split_ratio` : exécution générique vs structurel méthode --> deux traitements différents.
+
+### Appris
+
+AUROC bas = deux diagnostics distincts selon qu'il est proche de 0 ou de 0.5. Arbitrage contrat abstrait vs paramètre d'orchestrateur : dépend de la nature structurelle ou non du paramètre.
+
+_Suite : script de comparaison PaDiM/STFPM (run définitif 100 epochs) + benchmark FPS/RAM. Dette vus aussi : boilerplate config dupliqué (les yaml) (scripts debug : 03/05/06/07), couplage evaluate.py aux labels {0,1}._

@@ -9,6 +9,16 @@ class AnomalyMethod(ABC):
     Abstract base class for anomaly detection Methods
     """
 
+    @property
+    @abstractmethod
+    def validation_split_ratio(self) -> float | None:
+        """
+        Return the ratio of the validation split.
+        Returns:
+            float | None: The validation split ratio.
+        """
+        pass
+
     @abstractmethod
     def fit(self, train_loader: DataLoader, val_loader: DataLoader | None = None) -> None:
         """

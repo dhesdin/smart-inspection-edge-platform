@@ -30,11 +30,10 @@ class STFPM(AnomalyMethod):
             params_common["input_size"],
         )
         self.param_epochs = params_common["n_epochs"]
-        self.param_batch_size = params_common["batch_size"]
         self.param_optimizer = params_common["optimizer"]
         self.param_momentum = params_common["momentum"]
         self.param_learning_rate = params_common["learning_rate"]
-        self.param_validation_ratio = params_common["validation_ratio"]
+        self.param_validation_split_ratio = params_common["validation_split_ratio"]
         param_seed = params_common["seed"]
         param_cudnn_deterministic = params_common["cudnn_deterministic"]
         self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
@@ -98,10 +97,17 @@ class STFPM(AnomalyMethod):
 
     def fit(self, train_loader: DataLoader, val_loader: DataLoader | None = None) -> None:
         """
-        Fit the model using the provided training data loader.
+        Fit the model using the provided training and validation data loaders.
         TW : Requires_grad and device are in __init__
         Args:
             train_loader (DataLoader): The training data loader.
+            val_loader (DataLoader | None, optional): The validation data loader.
+                Required by any method that needs validation ; used for best-model
+                selection across epochs.
+        Raises:
+            ValueError: If the validation data loader is not provided.
+        Returns:
+            None
         """
 
         if val_loader is None:
@@ -136,7 +142,7 @@ class STFPM(AnomalyMethod):
                 total_loss.backward()
                 optimizer.step()
 
-                train_losses.append(total_loss)
+                train_losses.append(total_loss.item())
             mean_train_loss = sum(train_losses) / len(train_losses)
 
             # ====== EVAL ====== #
@@ -151,7 +157,7 @@ class STFPM(AnomalyMethod):
                     self.student(image)
 
                     total_loss = self._compute_total_loss()
-                    val_losses.append(total_loss)
+                    val_losses.append(total_loss.item())
 
                 mean_val_losses = sum(val_losses) / len(val_losses)
             # ====== PRINT ====== #
@@ -164,7 +170,7 @@ class STFPM(AnomalyMethod):
             if best_val_loss is None or mean_val_losses < best_val_loss:
                 best_val_loss = mean_val_losses
                 best_student_state = copy.deepcopy(self.student.state_dict())
-                print(f"Epoch {epoch}: New best validation loss: {best_val_loss}")
+                print(f"Epoch {epoch + 1}: New best validation loss: {best_val_loss:.6f}")
 
         # ====== RESTORE BEST MODEL ====== #
         if best_student_state is None:
@@ -212,6 +218,10 @@ class STFPM(AnomalyMethod):
         score = anomaly_map.max().item()
 
         return score, anomaly_map
+
+    @property
+    def validation_split_ratio(self) -> float | None:
+        return self.param_validation_split_ratio
 
     @staticmethod
     def _normalize_features(features: Tensor) -> Tensor:

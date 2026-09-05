@@ -121,11 +121,11 @@ class PaDiM(AnomalyMethod):
         self.mean = torch.mean(self.embeddings, dim=1)  # (HW,C)
 
         # cov --> https://arxiv.org/abs/2011.08785 --> Σij = 1 N − 1 X N k=1 (x k ij − µij)(x k ij − µij) T + eI
-        mean = self.mean.unsqueeze(dim=1)  # (HW,1,C) for substraction between embeddings and mean
+        mean = self.mean.unsqueeze(dim=1)  # (HW,1,C) for subtraction between embeddings and mean
 
         self.cov = self._compute_covariance(embeddings=self.embeddings, mean=mean)  # (HW,C,C)
 
-        # identity matrix for avoid singular matrix and loop [i][i]
+        # identity matrix to avoid singular matrix and loop [i][i]
         self.cov = self._regularize_covariance(cov=self.cov, epsilon=1e-2)
 
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
@@ -162,6 +162,10 @@ class PaDiM(AnomalyMethod):
         score_anomaly = anomaly_map.max().item()
 
         return score_anomaly, anomaly_map
+
+    @property
+    def validation_split_ratio(self) -> float | None:
+        return None
 
     @staticmethod
     def _compute_covariance(embeddings: Tensor, mean: Tensor) -> Tensor:
@@ -206,7 +210,7 @@ class PaDiM(AnomalyMethod):
         Returns:
             Tensor: The Mahalanobis distance tensor of shape (HW, 1, 1).
         """
-        # distance² = (x - µ)^T * Σ⁻¹ * (x - µ)   --> line * inv_mat_cov * column
+        # distance² = (x - µ)^T * Σ⁻¹ * (x - µ)   --> row * inv_mat_cov * column
 
         # centered = x-mu
         centered = embeddings - mean

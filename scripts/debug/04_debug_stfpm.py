@@ -1,5 +1,5 @@
 import torch
-from sklearn.model_selection import train_test_split
+from torch.utils.data import random_split
 
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.data.dataset import AnomalyDataset
@@ -68,27 +68,43 @@ print(f" [MODEL - TEACHER] --> List features keys : {list(stfpm.teacher_features
 for layer_name in stfpm.layers:
     print(f" {layer_name} : teacher: {stfpm.teacher_features[layer_name].shape}, student: {stfpm.student_features[layer_name].shape}")
 
-print("=============== [MODEL] --> Test fit method ===============")
+print("\n=============== [MODEL] --> Test fit method ===============")
 # ovverride for quick debug run, real training uses 100 from config
 stfpm.param_epochs = 10
-random_state = 42
+seed = params_common["seed"]
+validation_split_ratio = params_common["validation_split_ratio"]
+batch_size = params_common["batch_size"]
 anomaly_dataset_train = AnomalyDataset(category="bottle", split="train")
 
-train_set, valid_set = train_test_split(anomaly_dataset_train, test_size=0.2, random_state=random_state)
+n_total = len(anomaly_dataset_train)
+n_val = int(n_total * validation_split_ratio)
+n_train = n_total - n_val
+train_set, valid_set = random_split(
+    anomaly_dataset_train,
+    [n_train, n_val],
+    generator=torch.Generator().manual_seed(seed),
+)
 
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=32, shuffle=True, num_workers=0, drop_last=False)
-valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=32, shuffle=False, num_workers=0, drop_last=False)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=False)
+valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=batch_size, shuffle=False, num_workers=0, drop_last=False)
+
 
 stfpm.fit(train_loader=train_loader, val_loader=valid_loader)
 
-print(" [MODEL] --> Finished testing fit method")
+print(" [MODEL] --> Finished testing fit method\n")
 
-print("=============== [MODEL] --> Test predict method ===============")
+
+print("=============== [MODEL] --> EVALUATE : BATCH LABEL CHECK ===============")
+for batch in train_loader:
+    print(f"Type batch['label'][0] : {type(batch['label'][0])}")
+    print(f"batch['label'][0] : {batch['label'][0]}")
+    break
+print("\n=============== [MODEL] --> Test predict method ===============")
 
 good_image = None
 bad_image = None
 
-# find good label et not good label
+# find good label and not good label
 for i in range(len(anomaly_dataset)):
     sample = anomaly_dataset[i]
 
@@ -104,8 +120,8 @@ for i in range(len(anomaly_dataset)):
         break
 
 
-print(f" [MODEL] --> Bad image shape : {bad_image.shape}")
-print(f" [MODEL] --> Good image shape : {good_image.shape}")
+print(f"[MODEL] --> Bad image shape : {bad_image.shape}")
+print(f"[MODEL] --> Good image shape : {good_image.shape}")
 
 assert good_image is not None, "No good image found in the test dataset."
 assert bad_image is not None, "No bad image found in the test dataset."
@@ -113,5 +129,5 @@ assert bad_image is not None, "No bad image found in the test dataset."
 
 b_score_anomaly, b_anomaly_map = stfpm.predict(image=bad_image)
 g_score_anomaly, g_anomaly_map = stfpm.predict(image=good_image)
-print(f" [MODEL] --> Bad image anomaly score : {b_score_anomaly}" + f" | Bad image anomaly map shape : {b_anomaly_map.shape}")
-print(f" [MODEL] --> Good image anomaly score : {g_score_anomaly}" + f" | Good image anomaly map shape : {g_anomaly_map.shape}")
+print(f"[MODEL] --> Bad image anomaly score : {b_score_anomaly}" + f" | Bad image anomaly map shape : {b_anomaly_map.shape}")
+print(f"[MODEL] --> Good image anomaly score : {g_score_anomaly}" + f" | Good image anomaly map shape : {g_anomaly_map.shape}")
