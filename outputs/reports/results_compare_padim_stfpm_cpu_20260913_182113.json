@@ -1,0 +1,21 @@
+{
+    "config": {
+        "run_id": "compare_padim_stfpm_20260913_182113",
+        "dataset": "bottle",
+        "batch_size": 32,
+        "seed": 42,
+        "device": "cpu"
+    },
+    "stfpm": {
+        "roc_auc": 1.0,
+        "n_samples": 83,
+        "n_normal": 20,
+        "n_anomaly": 63
+    },
+    "padim": {
+        "roc_auc": 0.9928571428571429,
+        "n_samples": 83,
+        "n_normal": 20,
+        "n_anomaly": 63
+    }
+}
