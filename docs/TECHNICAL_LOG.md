@@ -460,3 +460,41 @@ Sur le plan technique, j'ai consolidé ma compréhension de la distillation de c
 AUROC bas = deux diagnostics distincts selon qu'il est proche de 0 ou de 0.5. Arbitrage contrat abstrait vs paramètre d'orchestrateur : dépend de la nature structurelle ou non du paramètre.
 
 _Suite : script de comparaison PaDiM/STFPM (run définitif 100 epochs) + benchmark FPS/RAM. Dette vus aussi : boilerplate config dupliqué (les yaml) (scripts debug : 03/05/06/07), couplage evaluate.py aux labels {0,1}._
+
+---
+
+# Journal de bord - Smart Inspection Edge Platform
+
+## Date : fin septembre 2026 (audit complet + correction critique PaDiM)
+
+### Contexte
+Finalisation du benchmark FPS/VRAM entre PaDiM et STFPM, config des scripts debug refactorée et correction critique de PaDiM.
+Audit externe en lecture seule sur l'ensemble du repo par Claude (Opus) (code, tests, CI, historique git). Révèle un bug de fond dans la comparaison PaDiM/STFPM qui invalide les résultats FPS/VRAM produits jusqu'ici.
+
+### Réalisations
+- **Bug critique corrigé** : `predict()` de PaDiM recalculait `torch.linalg.inv(cov)` (4096 inversions de matrices 100×100) à chaque appel, alors que `cov` est fixe après `fit()`. Précalcul de `self.inv_cov` une seule fois, dans `fit()` et `load()`.
+- Tri déterministe du dataset (`sorted()` sur `iterdir()`/`glob()`) : l'ordre des fichiers dépendait du système de fichiers, cassant la reproductibilité du split seedé entre machines (c'est pour cela que j'avais des léger écarts entre mes deux laptops).
+- `.convert("RGB")` à l'ouverture des images : les catégories MVTec en niveaux de gris (grid, screw, zipper) plantaient sur `Normalize` (1 canal vs 3 attendus) - jamais détecté faute de les avoir testées.
+- Masques redimensionnés en interpolation NEAREST (pas bilinéaire) : préserve des valeurs binaires 0/1, nécessaire pour un futur AUROC pixel.
+- Résultats de référence régénérés sur deux catégories (bottle, cable) après correction.
+
+### Résultats : avant/après correction (cable)
+| | avant (bug) | après (corrigé) |
+|---|---|---|
+| PaDiM FPS | 42 (23.7ms) | 676 (1.5ms) |
+| PaDiM VRAM/inférence | 488 Mo | 13 Mo |
+| Conclusion | STFPM ~11× plus rapide | **PaDiM plus rapide que STFPM** |
+
+Le classement s'inverse complètement : PaDiM (un seul forward + une multiplication) est plus rapide que STFPM (deux forwards), au prix d'une mémoire résidente plus élevée (mean/cov/inv_cov gardés en mémoire, ~375 Mo).
+
+### Difficultés
+- **Le bug a survécu à plusieurs relectures ciblées** de `predict()` sans être repéré - seul un audit complet (Claude) au bout d'un certain moment l'a fait ressortir. Principe retenu : review par IA à intégrer plus régulièrement.
+ 
+### Décisions clés
+- Adoption d'une approche plus systématique pour les benchmarks : séparation claire entre préparation des données, chargement des modèles et mesure des performances (FPS/VRAM).
+- Nettoyage de la mémoire GPU entre les benchmarks pour éviter les interférences et obtenir des mesures plus fiables.
+
+### Appris
+Un bug de performance peut invalider une conclusion scientifique entière sans jamais produire d'erreur ni de résultat visiblement faux - PaDiM "fonctionnait", donnait le bon score, juste beaucoup trop lentement pour de mauvaises raisons (ma faute, mauvaise réflexion scientifique lors du développement). Mesurer une différence entre deux implémentations ne prouve rien sur les algorithmes eux-mêmes tant que chaque implémentation n'a pas été auditée pour des inefficacités évitables.
+
+*Suite : review Claude Code globale sur l'état corrigé. Reste ouvert : AUROC pixel + visualisation des cartes d'anomalie*
