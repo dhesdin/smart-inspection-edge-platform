@@ -121,7 +121,7 @@ def test_benchmark_cycles_over_images():
     method = _FakeMethod()
     benchmark(method, _images((0.0, 1.0)), n_warmup=3, n_measures=4, device=torch.device("cuda"))
     assert method.seen_values == [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0]
-    
+
 
 # predict always receives an image already moved on the GPU, both during warmup and measurement.
 @requires_cuda
