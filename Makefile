@@ -3,7 +3,7 @@
 PYTHON := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
 
 ifeq ($(strip $(PYTHON)),)
-$(error "Python 3.10 or higher version is required. Please install Python >=3.10  : https://www.python.org/downloads/")
+$(error "Python 3.12 or higher version is required. Please install Python >=3.12  : https://www.python.org/downloads/")
 endif
 
 
@@ -16,7 +16,7 @@ help:
 
 setup:
 	@echo "Setting up the virtual environment and installing dependencies..."
-	$(PYTHON) -c "import sys ; sys.exit('Python 3.10 or higher is required. Upgrade your Python version') if sys.version_info < (3,10) else None"
+	$(PYTHON) -c "import sys ; sys.exit('Python 3.12 or higher is required. Upgrade your Python version') if sys.version_info < (3,12) else None"
 	@echo "Using ${PYTHON} version $(shell $(PYTHON) --version)"
 
 	$(PYTHON) -m venv .venv && \

@@ -16,7 +16,7 @@ Smart Industrial Anomaly Detection project, from dataset to real edge deployment
 
 ## Setup the project
 
-Clone the repository and create a virtual environment with Python 3.10 or higher. Install the required pip dependencies:
+Clone the repository and create a virtual environment with Python 3.12 or higher. Install the required pip dependencies:
 
 ```bash
 git clone https://github.com/Soewyth/smart-inspection-edge-platform.git

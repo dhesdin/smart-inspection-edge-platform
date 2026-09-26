@@ -14,9 +14,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
         run: |
@@ -27,3 +29,7 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
+
+      - name: Run unit tests
+        # integration tests need the MVTec dataset and pretrained weights: run them locally with `make test`
+        run: pytest -q -m "not integration"

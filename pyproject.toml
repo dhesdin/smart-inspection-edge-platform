@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "smart-inspection-edge-platform"
 version = "0.1.0"
 description = "Smart Inspection Edge Platform for Computer Vision Applications (industrial inspection)"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
 "numpy>=2.5,<3.0",
 "scipy>=1.18,<2.0",
@@ -41,7 +41,7 @@ include = ["smart_inspection*"]
 
 [tool.ruff]
 line-length = 150
-target-version = "py310"
+target-version = "py312"
 include = ["src/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 exclude = [".git", "__pycache__", "build", "dist"]
 
@@ -54,3 +54,6 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: needs external resources (MVTec dataset on disk, pretrained weights download); deselected in CI",
+]
