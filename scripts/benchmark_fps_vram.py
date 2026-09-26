@@ -14,8 +14,8 @@ from smart_inspection.models.factory import create_method
 
 # CONSTANTS
 CHECKPOINTS = {
-    "stfpm": "stfpm_cable_cuda_20260919_180058",
-    "padim": "padim_cable_cuda_20260919_180058",
+    "stfpm": "stfpm_cable_cuda_20260926_163835",
+    "padim": "padim_cable_cuda_20260926_163835",
 }
 N_IMAGES = 500
 N_WARMUP = 10
@@ -36,6 +36,10 @@ def _benchmark_one(method: str, checkpoint: str, models_dir: Path, images: list[
     Returns:
         dict: The benchmark results.
     """
+    if not checkpoint:
+        raise ValueError(f"No checkpoint specified for method '{method}'")
+    if not (models_dir / f"{checkpoint}.pt").exists():
+        raise FileNotFoundError(f"Checkpoint file '{checkpoint}.pt' for method '{method}' not found in '{models_dir}'")
 
     method_instance = create_method(method_name=method)
     method_instance.load(models_dir / f"{checkpoint}.pt")
@@ -65,9 +69,10 @@ def main() -> None:
     reports_dir = common_yaml["paths"]["reports_dir"]
     models_dir = common_yaml["paths"]["models_dir"]
     run_id = get_run_id(tag=f"benchmark_{device}")
+    category_dataset = "cable"
 
     # dataset : linspace for selecting N_IMAGES evenly spaced samples from the test set
-    dataset = AnomalyDataset(category="cable", split="test")
+    dataset = AnomalyDataset(category=category_dataset, split="test")
     indices = np.linspace(0, len(dataset) - 1, num=min(N_IMAGES, len(dataset)), dtype=int)
     images = [dataset[int(i)]["image"] for i in indices]
     print(f"Using {len(images)} images for benchmarking.")
@@ -83,7 +88,7 @@ def main() -> None:
     # report
     config = {
         "run_id": run_id,
-        "dataset_category": dataset.category,
+        "dataset_category": category_dataset,
         "device": str(device),
         "n_images": len(images),
         "n_warmup": N_WARMUP,

@@ -1,6 +1,6 @@
 {
     "config": {
-        "run_id": "compare_padim_stfpm_cuda_20260919_155523",
+        "run_id": "compare_padim_stfpm_cuda_20260926_163519",
         "dataset": "bottle",
         "batch_size": 32,
         "seed": 42,
