@@ -2,7 +2,7 @@ from pathlib import Path
 
 import torch
 from PIL import Image
-from torchvision.transforms import Compose, Normalize, Resize, ToTensor
+from torchvision.transforms import Compose, InterpolationMode, Normalize, Resize, ToTensor
 
 from smart_inspection.config.loader import resolve_config_paths
 
@@ -54,7 +54,7 @@ class AnomalyDataset:
         )
         self.transform_mask = Compose(
             [
-                Resize(self.input_size),
+                Resize(self.input_size, interpolation=InterpolationMode.NEAREST),
                 ToTensor(),  # 0-1
             ]
         )
@@ -70,14 +70,14 @@ class AnomalyDataset:
             list: A list of dictionaries containing sample information.
         """
         samples = []
-        for p in split_path.iterdir():
+        for p in sorted(split_path.iterdir()):
             if not p.is_dir():
                 continue
             if p.name == "good":
                 label = 0
             else:
                 label = 1
-            for image in p.glob("*.png"):
+            for image in sorted(p.glob("*.png")):
                 mask_filename = image.stem + "_mask" + image.suffix
                 if label == 1:
                     samples.append(
@@ -104,6 +104,7 @@ class AnomalyDataset:
         sample = self.samples[idx]
         # transform image
         with Image.open(sample["images_path"]) as image:
+            image = image.convert("RGB")  # Ensure the image is in RGB format
             image = self.transform_image(image)
         # mask
         if sample["mask_path"] is not None:
