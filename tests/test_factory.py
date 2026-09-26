@@ -5,6 +5,7 @@ from smart_inspection.models.padim.model import PaDiM
 from smart_inspection.models.stfpm.model import STFPM
 
 
+@pytest.mark.integration
 def test_create_method_padim_returns_padim_instance():
     """create_method("padim") should return a PaDiM instance."""
     method = create_method("padim")
@@ -15,6 +16,7 @@ def test_create_method_padim_returns_padim_instance():
 # is a stub (fit/predict = pass). To be strengthened with real assertions
 # on the behavior (fit modifies the internal state, predict returns a
 # tuple (float, Tensor) consistently) once the real implementation is done.
+@pytest.mark.integration
 def test_create_method_stfpm_returns_stfpm_instance():
     """create_method("stfpm") should return an STFPM instance."""
     method = create_method("stfpm")

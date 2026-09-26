@@ -19,12 +19,14 @@ def bottle_dataset() -> AnomalyDataset:
     return AnomalyDataset(category="bottle", split="test")
 
 
+@pytest.mark.integration
 def test_discover_samples_count_matches_filesystem(bottle_test_dir, bottle_dataset):
     """The number of discovered samples should match an independent glob of the PNGs on disk."""
     expected_count = sum(1 for _ in bottle_test_dir.glob("*/*.png"))
     assert len(bottle_dataset) == expected_count
 
 
+@pytest.mark.integration
 def test_labels_are_zero_for_good_and_one_for_defects(bottle_dataset):
     """Samples from the "good" folder should be labeled 0, all others labeled 1."""
     for sample in bottle_dataset.samples:
@@ -32,6 +34,7 @@ def test_labels_are_zero_for_good_and_one_for_defects(bottle_dataset):
         assert sample["label"] == expected_label
 
 
+@pytest.mark.integration
 def test_mask_path_is_none_only_for_good_samples(bottle_dataset):
     """mask_path should be None for "good" samples and set for defect samples."""
     for sample in bottle_dataset.samples:
@@ -55,6 +58,7 @@ def test_raises_value_error_when_no_samples_found(tmp_path, monkeypatch):
         AnomalyDataset(category=category, split=split)
 
 
+@pytest.mark.integration
 def test_getitem_returns_expected_keys_and_shapes(bottle_dataset):
     """__getitem__ should return image/label/mask with the expected shapes for both classes."""
     good_idx = next(i for i, s in enumerate(bottle_dataset.samples) if s["label"] == 0)
