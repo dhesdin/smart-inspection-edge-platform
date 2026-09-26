@@ -130,6 +130,9 @@ class PaDiM(AnomalyMethod):
         # identity matrix to avoid singular matrix and loop [i][i]
         self.cov = self._regularize_covariance(cov=self.cov, epsilon=1e-2)
 
+        # the inverse does not depend on the image: compute it once here, not at every predict()
+        self.inv_cov = torch.linalg.inv(self.cov)  # (HW,C,C)
+
     def predict(self, image: Tensor) -> tuple[float, Tensor]:
         image = image.unsqueeze(0).to(device=self.device)  # add batch for forward
 
@@ -154,7 +157,7 @@ class PaDiM(AnomalyMethod):
         # === reduce channels ===
         embeddings = embeddings[:, self.selected_indices]
         # === Mahalanobis distance ===
-        square_distance = self._compute_mahalanobis_distance(embeddings=embeddings, mean=self.mean, cov=self.cov)
+        square_distance = self._compute_mahalanobis_distance(embeddings=embeddings, mean=self.mean, inv_cov=self.inv_cov)
 
         # squeeze shape from (HW,1,1) to (HW)
         square_distance = square_distance.squeeze()
@@ -187,6 +190,8 @@ class PaDiM(AnomalyMethod):
         self.mean = checkpoint["mean"]
         self.cov = checkpoint["cov"]
         self.selected_indices = checkpoint["selected_indices"]
+        # the checkpoint stores cov only (older checkpoints stay valid): rebuild the inverse once at load time
+        self.inv_cov = torch.linalg.inv(self.cov)  # (HW,C,C)
 
     @staticmethod
     def _compute_covariance(embeddings: Tensor, mean: Tensor) -> Tensor:
@@ -221,13 +226,13 @@ class PaDiM(AnomalyMethod):
         return cov
 
     @staticmethod
-    def _compute_mahalanobis_distance(embeddings: Tensor, mean: Tensor, cov: Tensor) -> Tensor:
+    def _compute_mahalanobis_distance(embeddings: Tensor, mean: Tensor, inv_cov: Tensor) -> Tensor:
         """
-        Compute the Mahalanobis distance between the embeddings and the mean using the covariance matrix.
+        Compute the Mahalanobis distance between the embeddings and the mean using the inverse covariance matrix.
         Args:
             embeddings (Tensor): The embeddings tensor of shape (HW, C).
             mean (Tensor): The mean tensor of shape (HW, C).
-            cov (Tensor): The covariance matrix of shape (HW, C, C).
+            inv_cov (Tensor): The inverse of the covariance matrix, of shape (HW, C, C).
         Returns:
             Tensor: The Mahalanobis distance tensor of shape (HW, 1, 1).
         """
@@ -238,9 +243,7 @@ class PaDiM(AnomalyMethod):
         centered_line = centered.unsqueeze(dim=1)  # (HW,1,C)
         centered_column = centered.unsqueeze(dim=2)  # (HW,C,1)
 
-        inv_cov_matrix = torch.linalg.inv(cov)  # (HW,C,C)
-
-        mahalanobis_intermediate = torch.matmul(inv_cov_matrix, centered_column)  # (HW,C,C) @ (HW,C,1)
+        mahalanobis_intermediate = torch.matmul(inv_cov, centered_column)  # (HW,C,C) @ (HW,C,1)
         square_distance = torch.matmul(centered_line, mahalanobis_intermediate)  # (HW,1,C) @ (HW,C,1)
 
         return square_distance

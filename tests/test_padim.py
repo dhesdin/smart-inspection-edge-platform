@@ -64,9 +64,9 @@ def test_mahalanobis_distance():
 
     embeddings = torch.tensor([[3, 4]], dtype=torch.float32)  # (HW,C) -> (1,2)
     mean = torch.tensor([[1, 1]], dtype=torch.float32)  # (HW,C) -> (1,2)
-    cov = torch.eye(2).unsqueeze(0)  # identity mat  (1,2,2)
+    inv_cov = torch.eye(2).unsqueeze(0)  # identity mat  (1,2,2)
 
-    square_dist = PaDiM._compute_mahalanobis_distance(embeddings=embeddings, mean=mean, cov=cov)
+    square_dist = PaDiM._compute_mahalanobis_distance(embeddings=embeddings, mean=mean, inv_cov=inv_cov)
 
     # x-u = (2,3) --> (x-u) = shape (1,2)
     # (x-u)^T --> shape (2,1) : (1,2) @ (2,1) = (1,1)
@@ -75,3 +75,33 @@ def test_mahalanobis_distance():
     expected_square_dist = torch.tensor([[[13]]], dtype=torch.float32)  # (HW,1,1)
 
     assert torch.isclose(input=square_dist, other=expected_square_dist).all()
+
+
+# The distance uses the inverse covariance as given: with a non-trivial inverse, distance² = (x-µ)^T Σ⁻¹ (x-µ).
+def test_mahalanobis_distance_uses_given_inverse_covariance():
+    embeddings = torch.tensor([[3.0, 4.0]])  # (HW,C) -> (1,2)
+    mean = torch.tensor([[1.0, 1.0]])  # (HW,C) -> (1,2)
+    inv_cov = torch.tensor([[[2.0, 0.0], [0.0, 0.5]]])  # (HW,C,C) -> diag(2, 0.5)
+
+    square_dist = PaDiM._compute_mahalanobis_distance(embeddings=embeddings, mean=mean, inv_cov=inv_cov)
+
+    # x-u = (2,3) --> 2*2² + 0.5*3² = 8 + 4.5 = 12.5
+    assert torch.isclose(input=square_dist, other=torch.tensor([[[12.5]]])).all()
+
+
+# load() rebuilds the inverse covariance once, so that inv_cov @ cov is the identity for every position.
+def test_load_computes_inverse_covariance(tmp_path):
+    hw, c = 3, 4
+    a = torch.randn(hw, c, c)
+    cov = a @ a.transpose(1, 2) + torch.eye(c)  # symmetric positive definite (HW,C,C), safely invertible
+    checkpoint_path = tmp_path / "padim.pt"
+    torch.save({"mean": torch.zeros(hw, c), "cov": cov, "selected_indices": torch.arange(c)}, checkpoint_path)
+
+    # bypass __init__ (config + pretrained weights download): load() only needs `device`
+    padim = PaDiM.__new__(PaDiM)
+    padim.device = torch.device("cpu")
+    padim.load(checkpoint_path)
+
+    identity = torch.eye(c).expand(hw, c, c)
+    assert padim.inv_cov.shape == (hw, c, c)
+    assert torch.allclose(padim.inv_cov @ padim.cov, identity, atol=1e-4)
