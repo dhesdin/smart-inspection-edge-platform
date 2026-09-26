@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
@@ -166,6 +168,25 @@ class PaDiM(AnomalyMethod):
     @property
     def validation_split_ratio(self) -> float | None:
         return None
+
+    def save(self, file_path: Path) -> None:
+        """
+        Save the model to the specified file path.
+        Args:
+            file_path (Path): The path to save the model.
+        """
+        torch.save({"mean": self.mean, "cov": self.cov, "selected_indices": self.selected_indices}, file_path)
+
+    def load(self, file_path: Path) -> None:
+        """
+        Load the model from the specified file path.
+        Args:
+            file_path (Path): The path to load the model from.
+        """
+        checkpoint = torch.load(file_path, map_location=self.device)
+        self.mean = checkpoint["mean"]
+        self.cov = checkpoint["cov"]
+        self.selected_indices = checkpoint["selected_indices"]
 
     @staticmethod
     def _compute_covariance(embeddings: Tensor, mean: Tensor) -> Tensor:

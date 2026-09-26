@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -16,6 +17,24 @@ class AnomalyMethod(ABC):
         Return the ratio of the validation split.
         Returns:
             float | None: The validation split ratio.
+        """
+        pass
+
+    @abstractmethod
+    def save(self, file_path: Path) -> None:
+        """
+        Save the model to the specified file path.
+        Args:
+            file_path (Path): The path to save the model.
+        """
+        pass
+
+    @abstractmethod
+    def load(self, file_path: Path) -> None:
+        """
+        Load the model from the specified file path.
+        Args:
+            file_path (Path): The path to load the model from.
         """
         pass
 

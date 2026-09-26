@@ -1,4 +1,5 @@
 import copy
+from pathlib import Path
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -222,6 +223,22 @@ class STFPM(AnomalyMethod):
     @property
     def validation_split_ratio(self) -> float | None:
         return self.param_validation_split_ratio
+
+    def save(self, file_path: Path) -> None:
+        """
+        Save the model to the specified file path.
+        Args:
+            file_path (Path): The path to save the model.
+        """
+        torch.save(self.student.state_dict(), file_path)
+
+    def load(self, file_path: Path) -> None:
+        """
+        Load the model from the specified file path.
+        Args:
+            file_path (Path): The path to load the model from.
+        """
+        self.student.load_state_dict(torch.load(file_path, map_location=self.device))
 
     @staticmethod
     def _normalize_features(features: Tensor) -> Tensor:

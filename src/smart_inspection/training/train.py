@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader, random_split
 
@@ -13,6 +15,7 @@ def train(
     shuffle: bool = True,
     num_workers: int = 0,
     drop_last: bool = False,
+    save_path: Path | None = None,
 ) -> None:
     """Train method on dataset.
 
@@ -30,6 +33,7 @@ def train(
         num_workers (int, optional): Number of workers for the dataloaders. Defaults to 0.
         drop_last (bool, optional): Drop the last incomplete batch of the *training*
             loader only; the validation loader always keeps every sample. Defaults to False.
+        save_path (Path | None, optional): The path to save the trained model. Defaults to None.
 
     Raises:
         ValueError: If validation_split_ratio is not in (0, 1), if the split
@@ -87,3 +91,5 @@ def train(
         val_loader = None
 
     method.fit(train_loader=train_loader, val_loader=val_loader)
+    if save_path is not None:
+        method.save(save_path)
