@@ -498,3 +498,59 @@ Le classement s'inverse complètement : PaDiM (un seul forward + une multiplicat
 Un bug de performance peut invalider une conclusion scientifique entière sans jamais produire d'erreur ni de résultat visiblement faux - PaDiM "fonctionnait", donnait le bon score, juste beaucoup trop lentement pour de mauvaises raisons (ma faute, mauvaise réflexion scientifique lors du développement). Mesurer une différence entre deux implémentations ne prouve rien sur les algorithmes eux-mêmes tant que chaque implémentation n'a pas été auditée pour des inefficacités évitables.
 
 *Suite : review Claude Code globale sur l'état corrigé. Reste ouvert : AUROC pixel + visualisation des cartes d'anomalie*
+
+---
+
+## Date : début octobre 2026 (localisation, fidélité PaDiM, visualisation)
+
+### Contexte
+Ajout de la localisation (AUROC pixel) et de figures qualitatives. Relecture de `padim/model.py` contre le papier source (arXiv:2011.08785, section IV-B) : des écarts existaient depuis l'implémentation initiale.
+
+### Réalisations
+- **PaDiM aligné sur le papier** : racine carrée de l'Éq. 2 (le code calculait le carré de la distance), interpolation bicubic, flou gaussien σ=4 (`sigma` dans `padim.yaml`), `param_input_size` manquant ajouté. La carte est upsamplée à 256×256 dans `predict()`, comme celle de STFPM, pour être comparée au masque.
+- **`evaluate()`** : AUROC pixel en plus de l'AUROC image. Accumulation en tableaux numpy (`np.concatenate`) plutôt qu'en listes Python, gain mémoire. Gardes : carte et masque de même taille, deux classes présentes côté image et côté pixel.
+- **Dataset** : ordre de scan trié, `.convert("RGB")`, masques redimensionnés en NEAREST pour rester binaires.
+- **Checkpoints** : `save()`/`load()` sur `AnomalyMethod`, `save_path` optionnel dans `train()`. PaDiM stocke `cov` et recalcule `inv_cov` au chargement.
+- **`evaluation/benchmark.py`** : FPS (médiane, p95, p99) et VRAM (résidente, pic, coût par inférence), avec warm-up et `synchronize()`.
+- **Visualisation** : `visualization/plots.py`, `io/save_fig.py` et `scripts/generate_anomaly_figures.py`. Figures par méthode et 4 figures de comparaison, avec une échelle de couleur commune par méthode.
+- **Figures de référence committées** : `comparison/` (4) et `high_normal/` (6) du run `figure_20261004_123157`. Les 12 autres restent en local, les comparaisons les recouvrent.
+- **Tests** : 89 passent en CI (`-m "not integration"`), 6 exclus car ils exigent le dataset ou les poids.
+
+### Résultats (après corrections, GPU)
+| | bottle image | bottle pixel | cable image | cable pixel |
+|---|---|---|---|---|
+| STFPM | 1.000 | 0.988 | 0.914 | 0.947 |
+| PaDiM | 0.994 | 0.983 | 0.852 | **0.974** |
+
+| FPS (cable) | PaDiM | STFPM |
+|---|---|---|
+| avant correction `inv_cov` | 42 | 463 |
+| après toutes les corrections | 582 | 456 |
+
+- VRAM résidente : PaDiM ~375 Mo (mean, cov, inv_cov), STFPM ~102 Mo. Coût par inférence : ~13 Mo contre ~10 Mo.
+- Sur cable, le classement s'inverse entre image et pixel : STFPM gagne en image, PaDiM en pixel.
+
+### Ce que montrent les figures (cable)
+- Sur les anomalies bien détectées, les deux cartes tombent sur le masque. STFPM est plus net, PaDiM plus étalé (σ=4, grille 64×64).
+- Les anomalies les plus ratées par les deux méthodes ont des masques en anneau autour d'un câble.
+- Chaque méthode a aussi ses ratés propres : STFPM ne voit pas un grand défaut d'isolant que PaDiM détecte très bien, PaDiM localise un minuscule défaut que STFPM manque.
+- L'échelle commune écrase la colonne STFPM en bleu (sa carte est un produit de trois cartes) : bleu veut dire score bas par rapport au pire du test set, pas absence de structure.
+
+### Difficultés
+- **Optimisation mémoire numpy** : en passant `pixel_labels` d'une liste de scalaires à une liste de tableaux, `.count()` devenait faux et `set()` plantait. passé sur les fonctions propre à numpy
+- **Mismatch de résolution** (64×64 contre 256×256) : `F.interpolate` attend `(N,C,H,W)`, et un `reshape` dans le mauvais ordre ne lève aucune erreur.
+- **`.append()` contre `.extend()`** sur les listes de valeurs pixel.
+
+### Décisions clés
+- Upsampling dans `predict()` plutôt que dans `evaluate()` : l'évaluation reste générique, chaque méthode garantit un contrat de sortie cohérent.
+- Cartes gardées en mémoire (~39 Mo par méthode sur cable) plutôt qu'un second passage de `predict()`.
+- Comparaison : une liste d'`idx` par figure, choisie par une méthode, puis les cartes des deux méthodes lues aux mêmes `idx`.
+- Un run de référence par type de résultat (JSON et figures), au lieu de committer chaque lancement.
+- Pas de module séparé pour valider les métadonnées de checkpoint : deux classes concrètes ne le justifient pas. 
+
+### Appris
+- Une explication (faux positifs ponctuels de PaDiM) ne vaut que si les figures la confirment. Elles montrent surtout des anomalies à score bas, communes aux deux méthodes.
+- Deux métriques voisines (AUROC image et pixel) peuvent classer deux méthodes à l'envers sans contradiction.
+- Vérifier une implémentation contre le papier, y compris les détails expérimentaux (interpolation, filtre, racine carrée).
+
+*Suite : AUROC par type de défaut, échelle de couleur de STFPM, README avec tableau de résultats, config injectée dans les constructeurs.*
