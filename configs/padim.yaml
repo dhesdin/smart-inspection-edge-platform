@@ -1,2 +1,3 @@
 params:
   n_features: 100 # To adjust for memory cost.  "100" -> default value from Papers. 100 features randomly takes from n_dim for covariance
+  sigma: 4 # gaussian filter from paper

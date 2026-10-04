@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torchvision.models as models
 from torch import Tensor
 from torch.utils.data import DataLoader
+from torchvision.transforms.functional import gaussian_blur
 
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.models.base import AnomalyMethod
@@ -25,6 +26,8 @@ class PaDiM(AnomalyMethod):
         params_common = merge_yaml_dict["params"]
         param_backbone = params_common["backbone"]
         self.param_n_features = params_common["n_features"]
+        self.param_input_size = (params_common["input_size"], params_common["input_size"])
+        self.param_sigma = params_common["sigma"]
         param_seed = params_common["seed"]
         param_cudnn_deterministic = params_common["cudnn_deterministic"]
 
@@ -159,11 +162,13 @@ class PaDiM(AnomalyMethod):
         # === Mahalanobis distance ===
         square_distance = self._compute_mahalanobis_distance(embeddings=embeddings, mean=self.mean, inv_cov=self.inv_cov)
 
-        # squeeze shape from (HW,1,1) to (HW)
-        square_distance = square_distance.squeeze()
-
+        distance = torch.sqrt(square_distance.clamp(min=0))
         # === Reshape for anomalymap and scalar value (signature) ===
-        anomaly_map = square_distance.reshape(target_size[0], target_size[1])
+        anomaly_map = distance.reshape(1, 1, target_size[0], target_size[1])
+        anomaly_map = F.interpolate(input=anomaly_map, size=self.param_input_size, mode="bicubic")
+        kernel_size = 2 * int(4 * self.param_sigma + 0.5) + 1  # 33 for σ=4 left and right, +1 for pixel center
+        anomaly_map = gaussian_blur(anomaly_map, kernel_size=kernel_size, sigma=self.param_sigma).squeeze()  # from (1,1,H,W) to (H,W)
+
         score_anomaly = anomaly_map.max().item()
 
         return score_anomaly, anomaly_map
