@@ -33,6 +33,13 @@ class _FakeMethod(AnomalyMethod):
         return image.mean().item(), image[0]
 
 
+class _WrongSizeMapMethod(_FakeMethod):
+    """AnomalyMethod whose anomaly map is smaller than the mask (2x2 instead of 4x4)."""
+
+    def predict(self, image: Tensor) -> tuple[float, Tensor]:
+        return image.mean().item(), image[0, :2, :2]
+
+
 class _ScoredDataset(Dataset):
     """Dataset of constant images: each sample is (score, label), the image is filled with its score."""
 
@@ -44,7 +51,7 @@ class _ScoredDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         score, label = self.samples[idx]
-        return {"image": torch.full((3, 4, 4), score), "label": label}
+        return {"image": torch.full((3, 4, 4), score), "label": label, "mask": torch.full((1, 4, 4), float(label))}
 
 
 def _loader(samples: list[tuple[float, int]], batch_size: int = 2) -> DataLoader:
@@ -122,3 +129,30 @@ def test_evaluate_empty_loader_raises_value_error():
 
     with pytest.raises(ValueError, match="no samples"):
         evaluate(_FakeMethod(), loader)
+
+
+# The pixel AUROC is a plain Python float (JSON friendly), not a numpy scalar.
+def test_evaluate_pixel_auroc_is_a_python_float():
+    loader = _loader([(0.1, 0), (0.9, 1)])
+
+    result = evaluate(_FakeMethod(), loader)
+
+    assert type(result["roc_auc_pixel"]) is float
+
+
+# The pixel counts are reported correctly: 2 normal + 1 anomalous 4x4 images give 32 normal and 16 anomalous pixels.
+def test_evaluate_reports_pixel_counts():
+    loader = _loader([(0.1, 0), (0.2, 0), (0.9, 1)])
+
+    result = evaluate(_FakeMethod(), loader)
+
+    assert result["n_pixel_normal"] == 32
+    assert result["n_pixel_anomaly"] == 16
+
+
+# An anomaly map whose size differs from the mask is rejected with a clear error.
+def test_evaluate_map_mask_size_mismatch_raises_value_error():
+    loader = _loader([(0.1, 0), (0.9, 1)])
+
+    with pytest.raises(ValueError, match="does not match mask"):
+        evaluate(_WrongSizeMapMethod(), loader)
