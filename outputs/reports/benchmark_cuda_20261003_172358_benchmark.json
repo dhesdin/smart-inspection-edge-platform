@@ -1,0 +1,32 @@
+{
+    "config": {
+        "run_id": "benchmark_cuda_20261003_172358",
+        "dataset_category": "cable",
+        "device": "cuda",
+        "n_images": 150,
+        "n_warmup": 10,
+        "n_measures": 60
+    },
+    "stfpm": {
+        "median_t_transfer_ms": 0.09885949930321658,
+        "median_compute_t_ms": 2.0933679998051957,
+        "median_total_time_ms": 2.1929534996161237,
+        "percentile_95_total_time_ms": 2.355968650499562,
+        "percentile_99_total_time_ms": 2.5212287996146183,
+        "fps": 456.0060211833265,
+        "resident_vram_mb": 101.755859375,
+        "peak_vram_mb": 111.38134765625,
+        "inference_cost_vram_mb": 9.62548828125
+    },
+    "padim": {
+        "median_t_transfer_ms": 0.09819250044529326,
+        "median_compute_t_ms": 1.6192390003197943,
+        "median_total_time_ms": 1.7179779997604783,
+        "percentile_95_total_time_ms": 1.7469455005084455,
+        "percentile_99_total_time_ms": 1.861400810139457,
+        "fps": 582.0796309029689,
+        "resident_vram_mb": 375.06884765625,
+        "peak_vram_mb": 388.08447265625,
+        "inference_cost_vram_mb": 13.015625
+    }
+}

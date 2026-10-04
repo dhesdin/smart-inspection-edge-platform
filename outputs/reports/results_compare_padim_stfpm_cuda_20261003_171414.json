@@ -1,0 +1,27 @@
+{
+    "config": {
+        "run_id": "compare_padim_stfpm_cuda_20261003_171414",
+        "dataset": "cable",
+        "batch_size": 32,
+        "seed": 42,
+        "device": "cuda"
+    },
+    "stfpm": {
+        "roc_auc": 0.9136056971514244,
+        "n_normal": 58,
+        "n_anomaly": 92,
+        "roc_auc_pixel": 0.9468816740110416,
+        "n_pixel_normal": 9548153,
+        "n_pixel_anomaly": 282247,
+        "n_samples": 150
+    },
+    "padim": {
+        "roc_auc": 0.852136431784108,
+        "n_normal": 58,
+        "n_anomaly": 92,
+        "roc_auc_pixel": 0.9738220617066801,
+        "n_pixel_normal": 9548153,
+        "n_pixel_anomaly": 282247,
+        "n_samples": 150
+    }
+}

@@ -1,0 +1,27 @@
+{
+    "config": {
+        "run_id": "compare_padim_stfpm_cuda_20261003_170821",
+        "dataset": "bottle",
+        "batch_size": 32,
+        "seed": 42,
+        "device": "cuda"
+    },
+    "stfpm": {
+        "roc_auc": 1.0,
+        "n_normal": 20,
+        "n_anomaly": 63,
+        "roc_auc_pixel": 0.9878463715442343,
+        "n_pixel_normal": 5125104,
+        "n_pixel_anomaly": 314384,
+        "n_samples": 83
+    },
+    "padim": {
+        "roc_auc": 0.9936507936507937,
+        "n_normal": 20,
+        "n_anomaly": 63,
+        "roc_auc_pixel": 0.9825149257331218,
+        "n_pixel_normal": 5125104,
+        "n_pixel_anomaly": 314384,
+        "n_samples": 83
+    }
+}
