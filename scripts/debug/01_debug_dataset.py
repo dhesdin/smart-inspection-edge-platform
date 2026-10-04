@@ -76,7 +76,7 @@ print(f"Label of the sample: {sample['label']}")
 print(f"Shape size of the sample image: {sample['image'].shape}")
 print(f"Shape size of the sample mask: {sample['mask'].shape}")
 print("\n === VERIFICATION OF THE MASK ===")
-print(f" Verification that the mask is a tensor of zeros {sample['mask'].sum() == 0}")
+print(f" Verification that the mask with label 0 is a tensor of zeros {sample['mask'].sum() == 0}")
 
 # Verify that the values of the image are within a coherent range
 #  with the ImageNet normalization (not between 0 and 1, but values that can be negative

@@ -14,8 +14,8 @@ from smart_inspection.models.factory import create_method
 
 # CONSTANTS
 CHECKPOINTS = {
-    "stfpm": "stfpm_cable_cuda_20260926_163835",
-    "padim": "padim_cable_cuda_20260926_163835",
+    "stfpm": "stfpm_cable_cuda_20261003_171414",
+    "padim": "padim_cable_cuda_20261003_171414",
 }
 N_IMAGES = 500
 N_WARMUP = 10
