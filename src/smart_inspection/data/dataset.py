@@ -85,10 +85,11 @@ class AnomalyDataset:
                             "images_path": image,
                             "label": label,
                             "mask_path": split_path.parent / "ground_truth" / p.name / mask_filename,
+                            "subcategory": p.name,
                         }
                     )
                 else:
-                    samples.append({"images_path": image, "label": label, "mask_path": None})
+                    samples.append({"images_path": image, "label": label, "mask_path": None, "subcategory": p.name})
         return samples
 
     def __len__(self) -> int:
@@ -96,10 +97,11 @@ class AnomalyDataset:
 
     def __getitem__(self, idx: int) -> dict:
         """Get a sample from the dataset. For Lazy loading, the image and mask are loaded and transformed when accessed.
+        Subcategory is the folder name under the split directory ("good" for normal images).
         Args:
             idx (int): The index of the sample to retrieve.
         Returns:
-            dict: A dictionary containing the image, label, and mask.
+            dict: A dictionary containing the image, label, mask, and subcategory.
         """
         sample = self.samples[idx]
         # transform image
@@ -113,4 +115,4 @@ class AnomalyDataset:
         else:
             mask = torch.zeros(1, *self.input_size)
 
-        return {"image": image, "label": sample["label"], "mask": mask}
+        return {"image": image, "label": sample["label"], "mask": mask, "subcategory": sample["subcategory"]}

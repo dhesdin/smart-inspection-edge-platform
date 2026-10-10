@@ -68,7 +68,7 @@ def test_getitem_returns_expected_keys_and_shapes(bottle_dataset):
 
     for idx in (good_idx, defect_idx):
         item = bottle_dataset[idx]
-        assert set(item.keys()) == {"image", "label", "mask"}
+        assert set(item.keys()) == {"image", "label", "mask", "subcategory"}
         assert item["image"].shape == (3, *bottle_dataset.input_size)
         assert isinstance(item["label"], int)
         assert item["mask"].shape == (1, *bottle_dataset.input_size)
@@ -166,3 +166,17 @@ def test_mask_stays_binary_after_resize(synthetic_dataset):
 
     assert mask.shape == (1, *synthetic_dataset.input_size)
     assert set(mask.unique().tolist()) == {0.0, 1.0}
+
+
+# Each sample's subcategory is the name of its folder, so normal images are "good" and defects keep their defect type.
+def test_subcategory_matches_folder_name(synthetic_dataset):
+    subcategories = []
+    for idx, sample in enumerate(synthetic_dataset.samples):
+        subcategory = synthetic_dataset[idx]["subcategory"]
+
+        assert subcategory == sample["images_path"].parent.name
+        if sample["label"] == 0:
+            assert subcategory == "good"
+        subcategories.append(subcategory)
+
+    assert sorted(set(subcategories)) == ["defect_a", "defect_b", "good"]
