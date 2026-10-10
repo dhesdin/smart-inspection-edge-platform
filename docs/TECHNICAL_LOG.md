@@ -554,3 +554,40 @@ Ajout de la localisation (AUROC pixel) et de figures qualitatives. Relecture de 
 - Vérifier une implémentation contre le papier, y compris les détails expérimentaux (interpolation, filtre, racine carrée).
 
 *Suite : AUROC par type de défaut, échelle de couleur de STFPM, README avec tableau de résultats, config injectée dans les constructeurs.*
+
+---
+
+## Date : 10 octobre 2026 (AUROC par type de défaut sur cable)
+
+### Contexte
+Hypothèse du 4 octobre, non vérifiée : sur cable, les anomalies les plus ratées par PaDiM et STFPM seraient des `cable_swap` (anomalie logique). Les AUROC globaux (image : STFPM 0.914, PaDiM 0.852) mélangent 8 types de défauts et ne peuvent ni confirmer ni infirmer cette hypothèse. **Objectif :** un AUROC image par type de défaut, avec les checkpoints du tableau de référence (pas de réentraînement).
+
+### Prédictions (écrites et commitées AVANT exécution sur cable)
+- Classement du plus facile au plus dur (intuition, sans justification formelle, un seul classement pour les deux méthodes) : `combined`, `bent_wire`, `cut_inner_insulation`, `cut_outer_insulation`, `missing_cable`, `missing_wire`, `cable_swap`, `poke_insulation`.
+- Règle de décision sur `cable_swap` :
+  - AUROC <= 0.65 : compatible avec « aveugle » ;
+  - entre 0.65 et 0.8 : non concluant
+  - si >= 0.8 : hypothèse réfutée.
+
+### Réalisations
+- **Dataset** : chaque échantillon porte une clé `subcategory` = nom du dossier sous le split (`"good"` pour les normales), servie par `__getitem__`. Nommée `subcategory` et non `defect_category` pour ne pas la confondre avec `category` (`cable`, `bottle`…), le niveau au-dessus.
+- **`evaluate()`** : collecte la sous-catégorie dans la même itération que le score et le label (alignement garanti même avec `shuffle=True`).
+- **`_evaluate_by_subcategory`** : fonction pure (scores, labels, sous-catégories). Pour chaque type de défaut, positifs = ses échantillons anormaux ; négatifs = toutes les images normales, les mêmes pour tous les types (`n_normal` constant). Les normales sont repérées par le label et non par le nom `"good"` (métrique indépendante des noms de dossiers MVTec). Sortie triée par nom (JSON reproductible), `zip(strict=True)`, garde-fous « aucune normale » et « aucun défaut ».
+- **Tests** : 6 tests sur la fonction pure (longueurs différentes, sans normale, sans défaut, ordre trié, normales identifiées par le label).
+- À compléter : tests d'`evaluate()` (clé présente, résultat identique avec et sans `shuffle`), script d'évaluation depuis les checkpoints, résultats.
+
+### Difficultés
+- **Garde-fous placés dans la boucle de tri** : ils s'exécutaient à chaque échantillon et levaient une erreur dès le premier. Cause : l'indentation. Le tri et la validation sont deux boucles successives, pas imbriquées.
+
+### Décisions clés
+- Une seule passe de `predict()` sur le test de cable, puis regroupement par type.
+- Image-level d'abord. L'AUROC pixel par type reste à concevoir : le choix des pixels négatifs change le sens du chiffre.
+- Pas de réentraînement : chargement des checkpoints du run de référence, pour rester comparable au tableau existant.
+
+### Résultats
+À compléter après exécution (ne pas modifier les prédictions ci-dessus).
+
+### Appris
+À compléter.
+
+*Suite : tests d'`evaluate()`, script depuis checkpoints, résultats, puis échelle de couleur de STFPM, README avec tableau de résultats, config injectée dans les constructeurs.*
