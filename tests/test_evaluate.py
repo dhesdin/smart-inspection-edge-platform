@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
-from smart_inspection.evaluation.evaluate import evaluate
+from smart_inspection.evaluation.evaluate import _evaluate_by_subcategory, evaluate
 from smart_inspection.models.base import AnomalyMethod
 
 
@@ -51,7 +51,12 @@ class _ScoredDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         score, label = self.samples[idx]
-        return {"image": torch.full((3, 4, 4), score), "label": label, "mask": torch.full((1, 4, 4), float(label))}
+        return {
+            "image": torch.full((3, 4, 4), score),
+            "label": label,
+            "mask": torch.full((1, 4, 4), float(label)),
+            "subcategory": "good" if label == 0 else "defect",
+        }
 
 
 def _loader(samples: list[tuple[float, int]], batch_size: int = 2) -> DataLoader:
@@ -156,3 +161,67 @@ def test_evaluate_map_mask_size_mismatch_raises_value_error():
 
     with pytest.raises(ValueError, match="does not match mask"):
         evaluate(_WrongSizeMapMethod(), loader)
+
+
+# ---------------- per-subcategory AUROC (_evaluate_by_subcategory) ---------------- #
+
+
+# Each defect type is scored against all the normal samples. Normals are 0.2 and 0.6, so each type has 2 x 2 = 4 pairs:
+# defect_a (0.5, 0.9): 0.5>0.2, 0.5<0.6, 0.9>0.2, 0.9>0.6 -> 3/4 = 0.75
+# defect_b (0.1, 0.3): 0.1<0.2, 0.1<0.6, 0.3>0.2, 0.3<0.6 -> 1/4 = 0.25
+def test_evaluate_by_subcategory_gives_expected_values():
+    scores = [0.2, 0.6, 0.5, 0.9, 0.1, 0.3]
+    labels = [0, 0, 1, 1, 1, 1]
+    subcategories = ["good", "good", "defect_a", "defect_a", "defect_b", "defect_b"]
+
+    result = _evaluate_by_subcategory(scores, labels, subcategories)
+
+    assert "good" not in result
+    assert result["defect_a"]["roc_auc"] == pytest.approx(0.75)
+    assert result["defect_a"]["n_normal"] == 2
+    assert result["defect_a"]["n_anomaly"] == 2
+    assert result["defect_b"]["roc_auc"] == pytest.approx(0.25)
+    assert result["defect_b"]["n_normal"] == 2
+    assert result["defect_b"]["n_anomaly"] == 2
+
+
+# Subcategories are returned sorted by name, whatever their order in the input (defect_b comes first here).
+def test_evaluate_by_subcategory_results_are_sorted_by_name():
+    scores = [0.2, 0.1, 0.9]
+    labels = [0, 1, 1]
+    subcategories = ["good", "defect_b", "defect_a"]
+
+    result = _evaluate_by_subcategory(scores, labels, subcategories)
+
+    assert list(result) == ["defect_a", "defect_b"]
+
+
+# Normal samples are identified by their label, not by the name "good": a label-0 sample named otherwise is still a negative.
+def test_evaluate_by_subcategory_uses_label_not_name_for_normals():
+    scores = [0.2, 0.6, 0.5, 0.9]
+    labels = [0, 0, 1, 1]
+    subcategories = ["good", "normal", "defect_a", "defect_a"]
+
+    result = _evaluate_by_subcategory(scores, labels, subcategories)
+
+    assert list(result) == ["defect_a"]
+    assert result["defect_a"]["n_normal"] == 2
+    assert result["defect_a"]["roc_auc"] == pytest.approx(0.75)
+
+
+# Lists of different lengths are rejected (zip strict=True) instead of being silently truncated.
+def test_evaluate_by_subcategory_length_mismatch_raises_value_error():
+    with pytest.raises(ValueError, match="shorter"):
+        _evaluate_by_subcategory([0.2, 0.9, 0.5], [0, 1], ["good", "defect_a", "defect_a"])
+
+
+# Without any normal sample there are no negatives to compare against: ValueError.
+def test_evaluate_by_subcategory_without_normal_raises_value_error():
+    with pytest.raises(ValueError, match="at least one normal sample"):
+        _evaluate_by_subcategory([0.5, 0.9], [1, 1], ["defect_a", "defect_b"])
+
+
+# Without any anomalous sample there is no defect type to score: ValueError.
+def test_evaluate_by_subcategory_without_anomaly_raises_value_error():
+    with pytest.raises(ValueError, match="at least one anomalous sample"):
+        _evaluate_by_subcategory([0.2, 0.6], [0, 0], ["good", "good"])
