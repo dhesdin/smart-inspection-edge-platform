@@ -585,7 +585,29 @@ Hypothèse du 4 octobre, non vérifiée : sur cable, les anomalies les plus rat�
 - Pas de réentraînement : chargement des checkpoints du run de référence, pour rester comparable au tableau existant.
 
 ### Résultats
-À compléter après exécution (ne pas modifier les prédictions ci-dessus).
+Run `compare_method_bysubcategory_cuda_20261011_162757` (checkpoints `*_cable_cuda_20261003_171414`, GPU). Vérification contre le rapport de référence : **pass**, écarts image et pixel de 0.0 pour les deux méthodes (modèles rechargés depuis le `.pt` = modèles évalués en mémoire le 3 octobre).
+
+AUROC image par type de défaut (négatifs : les 58 images normales pour chaque type), lignes dans l'ordre de la prédiction (rang 1 = le mieux détecté, AUROC le plus haut) :
+
+| Rang prédit | Rang réel STFPM | Rang réel PaDiM | Type | n anomalies | STFPM | PaDiM | delta (STFPM - PaDiM) |
+|---|---|---|---|---|---|---|---|
+| 1 | 3 | 3 | `combined` | 11 | 0.959 | 0.933 | +0.027 |
+| 2 | 1 | 1 | `bent_wire` | 13 | 1.000 | 0.963 | +0.037 |
+| 3 | 2 | 4 | `cut_inner_insulation` | 14 | 0.995 | 0.863 | +0.132 |
+| 4 | 6 | 2 | `cut_outer_insulation` | 10 | 0.888 | 0.950 | −0.062 |
+| 5 | 5 | 7 | `missing_cable` | 12 | 0.902 | 0.764 | +0.138 |
+| 6 | 4 | 6 | `missing_wire` | 10 | 0.924 | 0.772 | +0.152 |
+| 7 | 8 | 8 | `cable_swap` | 12 | 0.736 | 0.716 | +0.020 |
+| 8 | 7 | 5 | `poke_insulation` | 10 | 0.879 | 0.855 | +0.024 |
+| | | | **Global** | 92 | 0.914 | 0.852 | +0.061 |
+
+**Observations :**
+- Les checkpoints rechargés redonnent exactement les AUROC de référence (écart 0.0) mais sur la même machine et le même GPU.
+- J'avais défini une hypothèse (cf. `## Date : 10 octobre 2026 (AUROC par type de défaut sur cable)`) :
+ 0.65 à 0.8 = non concluant. Résultat : STFPM 0.736, PaDiM 0.716, donc **non concluant**.
+- A posteriori : `cable_swap` a l'AUROC le plus bas des 8 types pour les deux méthodes.
+- PaDiM est seulement meilleur pour `cut_outer_insulation`.
+- 10 à 14 images par type de défaut reste peu, ce qui peut limiter la robustesse de mes conclusions.
 
 ### Appris
 À compléter.

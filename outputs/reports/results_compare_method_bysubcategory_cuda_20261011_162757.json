@@ -1,0 +1,136 @@
+{
+    "config": {
+        "reference_file_name": "results_compare_padim_stfpm_cuda_20261003_171414.json",
+        "run_id": "compare_method_bysubcategory_cuda_20261011_162757",
+        "dataset_category": "cable",
+        "checkpoints": {
+            "stfpm": "stfpm_cable_cuda_20261003_171414",
+            "padim": "padim_cable_cuda_20261003_171414"
+        },
+        "batch_size": 32,
+        "seed": 42,
+        "device": "cuda",
+        "n_images": 150
+    },
+    "reference_check": {
+        "verdict": "pass",
+        "stfpm": {
+            "tolerance_image_auroc": 1.8740629685157423e-05,
+            "gap_image_auroc": 0.0,
+            "gap_pixel_auroc": 0.0,
+            "counts_match": true,
+            "device_match": true,
+            "image_within_tolerance": true
+        },
+        "padim": {
+            "tolerance_image_auroc": 1.8740629685157423e-05,
+            "gap_image_auroc": 0.0,
+            "gap_pixel_auroc": 0.0,
+            "counts_match": true,
+            "device_match": true,
+            "image_within_tolerance": true
+        }
+    },
+    "stfpm": {
+        "roc_auc": 0.9136056971514244,
+        "n_normal": 58,
+        "n_anomaly": 92,
+        "roc_auc_pixel": 0.9468816740110416,
+        "n_pixel_normal": 9548153,
+        "n_pixel_anomaly": 282247,
+        "n_samples": 150,
+        "by_subcategory": {
+            "bent_wire": {
+                "roc_auc": 1.0,
+                "n_normal": 58,
+                "n_anomaly": 13
+            },
+            "cable_swap": {
+                "roc_auc": 0.735632183908046,
+                "n_normal": 58,
+                "n_anomaly": 12
+            },
+            "combined": {
+                "roc_auc": 0.9592476489028213,
+                "n_normal": 58,
+                "n_anomaly": 11
+            },
+            "cut_inner_insulation": {
+                "roc_auc": 0.9950738916256158,
+                "n_normal": 58,
+                "n_anomaly": 14
+            },
+            "cut_outer_insulation": {
+                "roc_auc": 0.8879310344827587,
+                "n_normal": 58,
+                "n_anomaly": 10
+            },
+            "missing_cable": {
+                "roc_auc": 0.9022988505747126,
+                "n_normal": 58,
+                "n_anomaly": 12
+            },
+            "missing_wire": {
+                "roc_auc": 0.9241379310344827,
+                "n_normal": 58,
+                "n_anomaly": 10
+            },
+            "poke_insulation": {
+                "roc_auc": 0.8793103448275862,
+                "n_normal": 58,
+                "n_anomaly": 10
+            }
+        }
+    },
+    "padim": {
+        "roc_auc": 0.852136431784108,
+        "n_normal": 58,
+        "n_anomaly": 92,
+        "roc_auc_pixel": 0.9738220617066801,
+        "n_pixel_normal": 9548153,
+        "n_pixel_anomaly": 282247,
+        "n_samples": 150,
+        "by_subcategory": {
+            "bent_wire": {
+                "roc_auc": 0.9628647214854111,
+                "n_normal": 58,
+                "n_anomaly": 13
+            },
+            "cable_swap": {
+                "roc_auc": 0.7155172413793103,
+                "n_normal": 58,
+                "n_anomaly": 12
+            },
+            "combined": {
+                "roc_auc": 0.932601880877743,
+                "n_normal": 58,
+                "n_anomaly": 11
+            },
+            "cut_inner_insulation": {
+                "roc_auc": 0.8633004926108374,
+                "n_normal": 58,
+                "n_anomaly": 14
+            },
+            "cut_outer_insulation": {
+                "roc_auc": 0.95,
+                "n_normal": 58,
+                "n_anomaly": 10
+            },
+            "missing_cable": {
+                "roc_auc": 0.764367816091954,
+                "n_normal": 58,
+                "n_anomaly": 12
+            },
+            "missing_wire": {
+                "roc_auc": 0.7724137931034483,
+                "n_normal": 58,
+                "n_anomaly": 10
+            },
+            "poke_insulation": {
+                "roc_auc": 0.8551724137931034,
+                "n_normal": 58,
+                "n_anomaly": 10
+            }
+        }
+    }
+}
