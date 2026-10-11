@@ -41,21 +41,29 @@ class _WrongSizeMapMethod(_FakeMethod):
 
 
 class _ScoredDataset(Dataset):
-    """Dataset of constant images: each sample is (score, label), the image is filled with its score."""
+    """Dataset of constant images: each sample is (score, label), the image is filled with its score.
 
-    def __init__(self, samples: list[tuple[float, int]]) -> None:
+    subcategories gives one subcategory per sample; when None, it is "good" for label 0 and "defect" otherwise.
+    """
+
+    def __init__(self, samples: list[tuple[float, int]], subcategories: list[str] | None = None) -> None:
         self.samples = samples
+        self.subcategories = subcategories
 
     def __len__(self) -> int:
         return len(self.samples)
 
     def __getitem__(self, idx: int) -> dict:
         score, label = self.samples[idx]
+        if self.subcategories is None:
+            subcategory = "good" if label == 0 else "defect"
+        else:
+            subcategory = self.subcategories[idx]
         return {
             "image": torch.full((3, 4, 4), score),
             "label": label,
             "mask": torch.full((1, 4, 4), float(label)),
-            "subcategory": "good" if label == 0 else "defect",
+            "subcategory": subcategory,
         }
 
 
@@ -225,3 +233,39 @@ def test_evaluate_by_subcategory_without_normal_raises_value_error():
 def test_evaluate_by_subcategory_without_anomaly_raises_value_error():
     with pytest.raises(ValueError, match="at least one anomalous sample"):
         _evaluate_by_subcategory([0.2, 0.6], [0, 0], ["good", "good"])
+
+
+# ---------------- per-subcategory AUROC through evaluate() ---------------- #
+
+# Same example as the pure function: normals 0.2 / 0.6, defect_a 0.5 / 0.9 -> 0.75, defect_b 0.1 / 0.3 -> 0.25.
+_SUBCAT_SAMPLES = [(0.2, 0), (0.6, 0), (0.5, 1), (0.9, 1), (0.1, 1), (0.3, 1)]
+_SUBCAT_NAMES = ["good", "good", "defect_a", "defect_a", "defect_b", "defect_b"]
+
+
+# evaluate() returns the per-subcategory AUROC and counts under "by_subcategory".
+def test_evaluate_reports_by_subcategory_values():
+    loader = DataLoader(_ScoredDataset(_SUBCAT_SAMPLES, _SUBCAT_NAMES), batch_size=2, shuffle=False)
+
+    result = evaluate(_FakeMethod(), loader)
+
+    by_subcategory = result["by_subcategory"]
+    assert list(by_subcategory) == ["defect_a", "defect_b"]
+    assert by_subcategory["defect_a"]["roc_auc"] == pytest.approx(0.75)
+    assert by_subcategory["defect_a"]["n_normal"] == 2
+    assert by_subcategory["defect_a"]["n_anomaly"] == 2
+    assert by_subcategory["defect_b"]["roc_auc"] == pytest.approx(0.25)
+    assert by_subcategory["defect_b"]["n_normal"] == 2
+    assert by_subcategory["defect_b"]["n_anomaly"] == 2
+
+
+# Scores, labels and subcategories stay aligned whatever order the loader serves the samples in.
+# The order is imposed (reversed) instead of random: a random shuffle of 6 samples gives back the original order 1 time in 720. (6!)
+def test_evaluate_by_subcategory_is_independent_of_loader_order():
+    dataset = _ScoredDataset(_SUBCAT_SAMPLES, _SUBCAT_NAMES)
+    order = list(reversed(range(len(dataset))))
+    assert order != list(range(len(dataset)))  # the served order really differs from the original one
+
+    in_order = evaluate(_FakeMethod(), DataLoader(dataset, batch_size=2, shuffle=False))
+    reordered = evaluate(_FakeMethod(), DataLoader(dataset, batch_size=2, sampler=order))
+
+    assert reordered["by_subcategory"] == in_order["by_subcategory"]
