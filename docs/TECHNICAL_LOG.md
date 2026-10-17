@@ -575,6 +575,11 @@ Hypothèse du 4 octobre, non vérifiée : sur cable, les anomalies les plus rat�
 - **`_evaluate_by_subcategory`** : fonction pure (scores, labels, sous-catégories). Pour chaque type de défaut, positifs = ses échantillons anormaux ; négatifs = toutes les images normales, les mêmes pour tous les types (`n_normal` constant). Les normales sont repérées par le label et non par le nom `"good"` (métrique indépendante des noms de dossiers MVTec). Sortie triée par nom (JSON reproductible), `zip(strict=True)`, garde-fous « aucune normale » et « aucun défaut ».
 - **Tests** : 6 tests sur la fonction pure (longueurs différentes, sans normale, sans défaut, ordre trié, normales identifiées par le label).
 - À compléter : tests d'`evaluate()` (clé présente, résultat identique avec et sans `shuffle`), script d'évaluation depuis les checkpoints, résultats.
+- Test d'`evaluate()` ajoutés (clé subcategory présente et correcte)
+- reference_check (comparaison d'un run avec un rapport de référence et ses tests)
+- Script `compare_method_by_subcategory.py` : évalue les checkpoints par type de défaut, vérifie
+contre le rapport de référence, puis sauvegarde le rapport avant de lever l'erreur si la vérification échoue.
+- Résultats ajoutés au journal
 
 ### Difficultés
 - **Garde-fous placés dans la boucle de tri** : ils s'exécutaient à chaque échantillon et levaient une erreur dès le premier. Cause : l'indentation. Le tri et la validation sont deux boucles successives, pas imbriquées.
@@ -609,7 +614,70 @@ AUROC image par type de défaut (négatifs : les 58 images normales pour chaque 
 - PaDiM est seulement meilleur pour `cut_outer_insulation`.
 - 10 à 14 images par type de défaut reste peu, ce qui peut limiter la robustesse de mes conclusions.
 
-### Appris
-À compléter.
 
-*Suite : tests d'`evaluate()`, script depuis checkpoints, résultats, puis échelle de couleur de STFPM, README avec tableau de résultats, config injectée dans les constructeurs.*
+*Suite : Section du 17 octobre 2026*
+
+---
+
+## Date : 17 octobre 2026 (cable_swap : lecture des cartes et argmax)
+
+### Contexte
+Le 11 octobre, l'AUROC par type de défaut est ressorti « non concluant » sur `cable_swap` (STFPM 0.736, PaDiM 0.716).
+Question : sur les 12 images `cable_swap`, où tombe la zone la plus chaude des cartes, et est-elle sur le masque ?
+
+Règle de lecture de l'argmax, posée avant l'exécution : anneau blanc seulement, le cuivre n'est pas une anomalie dans cette catégorie.
+
+### Réalisations
+- `scripts/generate_cable_swap_figures.py` : charge les checkpoints du 3 octobre (`*_cable_cuda_20261003_171414`), prédit tout le test de cable, puis produit pour chaque méthode :
+  - 12 figures en échelle de couleur par image (titre : indice, score, ratio au max global de la méthode) ;
+  - un diagnostic des scores (médiane et max des 58 normales, scores des 12 swap triés, nombre de swap au-dessus du max normal, max global) ;
+  - un test d'argmax : le pixel max de la carte est-il dans le masque ?
+- Rapport : `outputs/reports/results_cable_swap_20261017_144717.json`.
+- `generate_plots` : paramètre optionnel `title`.
+
+### Résultats
+Diagnostic des scores (cable test, 58 normales, 12 swap) :
+
+| | PaDiM | STFPM |
+|---|---|---|
+| Médiane des normales | 11.75 | 0.00761 |
+| Max des normales | 21.91 | 0.01418 |
+| Plage des scores swap | 11.44 à 21.52 | 0.00665 à 0.01558 |
+| Swap au-dessus du max normal | 0 | 1 |
+| Max global | 28.12 (bent_wire) | 0.0801 (bent_wire) |
+
+Argmax dans le masque (règle : anneau blanc seulement, le cuivre n'est pas une anomalie dans cette catégorie) :
+- PaDiM : **5/12** (images 15, 16, 18, 20, 23).
+- STFPM : **4/12** (images 15, 18, 21, 24).
+- Les deux : 15, 18. Aucun des deux : 13, 14, 17, 19, 22.
+- Hors #22 : PaDiM 5/11, STFPM 4/11.
+
+Image 22 : les deux argmax sont dans le coin bas-gauche (PaDiM (255, 11), STFPM (242, 18)). C'est le score swap le plus haut des deux méthodes.
+Ratio au max global, STFPM : non interprétable. Les swap vont de 0.083 à 0.195 et la pire normale est à 0.177, dans la même plage.
+
+### Observations
+- Image 22 : les deux argmax sont dans le coin bas-gauche. Sur les 3 normales `high_normal` de chaque méthode, ce coin est aussi chaud sur la carte, ce qui suggère un artefact plutôt qu'une anomalie réelle.
+- Hors #22, l'argmax tombe sur l'anneau dans 5 images sur 11 (PaDiM) et 4 sur 11 (STFPM), avec du bruit autour des zones chaudes.
+- Le score max pose un souci : une image normale à score élevé peut être confondue avec une anomalie. Ici, le max normal de PaDiM (21.91) dépasse les 12 scores swap.
+
+### Hypothèses non vérifiées
+- L'AUROC de `cable_swap` est peut-être flatté par #22. Non testé. Il faudrait recalculer l'AUROC en excluant cette image.
+
+### Limites
+n = 12 images. Plancher de hasard de l'argmax non mesuré : 5/12 et 4/12 ne se lisent ni comme « localise » ni comme « ne localise pas ».
+
+### Difficultés
+- Manipuler les dictionnaires à travers deux boucles imbriquées (méthode, puis image), en gardant la cohérence entre indices et scores.
+- Confusion d'indice entre #22 et #23, détectée en recoupant le ratio du titre (0.195 × 0.0801 ≈ 0.0156).
+
+### Décisions clés
+- Règle de l'argmax : anneau seulement, le cuivre n'est pas considéré comme une anomalie.
+- Chantier clos sans mesurer le plancher de hasard : Le but était de comprendre le comportement des méthodes sur les anomalies visibles, pas de produire une évaluation statistique rigoureuse.
+- Les 24 PNG ne sont pas versionnés.
+
+### Appris
+- Apprendre à se poser les bonnes questions : qu'est-il judicieux de mesurer et d'analyser qualitativement, et qu'est-ce qui est du bruit à ignorer pour ne pas fausser l'interprétation.
+- Certaines métriques peuvent être trompeuses si elles ne sont pas interprétées dans le bon contexte.
+- Un score élevé n'est pas une localisation correcte : #22 a le score swap le plus haut des deux méthodes, pour une mauvaise raison.
+- Une impression se vérifie par un comptage : « ça a l'air de bien détecter » a été confronté à 5/12 et 4/12.
+- Le ratio au max global est difficile à interpréter lorsque la distribution des scores est lourde comme STFPM.

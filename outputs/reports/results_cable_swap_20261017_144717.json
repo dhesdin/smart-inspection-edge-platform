@@ -1,0 +1,276 @@
+{
+    "config": {
+        "run_id": "cable_swap_20261017_144717",
+        "category": "cable",
+        "split": "test",
+        "subcategory": "cable_swap",
+        "swap_indices": [
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+        ],
+        "checkpoints": {
+            "padim": "padim_cable_cuda_20261003_171414",
+            "stfpm": "stfpm_cable_cuda_20261003_171414"
+        }
+    },
+    "diagnostic": {
+        "padim": {
+            "n_normal": 58,
+            "normal_median": 11.745664596557617,
+            "normal_max": 21.906349182128906,
+            "swap_scores_sorted": [
+                11.443096160888672,
+                11.614996910095215,
+                12.196173667907715,
+                12.651920318603516,
+                12.978437423706055,
+                13.996792793273926,
+                14.705474853515625,
+                15.45692253112793,
+                15.73345947265625,
+                16.47953987121582,
+                16.587692260742188,
+                21.52083969116211
+            ],
+            "n_swap_above_normal_max": 0,
+            "global_max": 28.1225528717041,
+            "global_max_subcategory": "bent_wire"
+        },
+        "stfpm": {
+            "n_normal": 58,
+            "normal_median": 0.007614073576405644,
+            "normal_max": 0.014179387129843235,
+            "swap_scores_sorted": [
+                0.006653143558651209,
+                0.007276615593582392,
+                0.007756807375699282,
+                0.008049564436078072,
+                0.008418445475399494,
+                0.009212671779096127,
+                0.009227173402905464,
+                0.010047819465398788,
+                0.011958552524447441,
+                0.012158057652413845,
+                0.013821587897837162,
+                0.015584379434585571
+            ],
+            "n_swap_above_normal_max": 1,
+            "global_max": 0.0800621509552002,
+            "global_max_subcategory": "bent_wire"
+        }
+    },
+    "argmax_hit": {
+        "padim": {
+            "results": [
+                {
+                    "idx": 13,
+                    "argmax_hit": {
+                        "row": 125,
+                        "col": 178,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 14,
+                    "argmax_hit": {
+                        "row": 109,
+                        "col": 136,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 15,
+                    "argmax_hit": {
+                        "row": 152,
+                        "col": 53,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 16,
+                    "argmax_hit": {
+                        "row": 167,
+                        "col": 209,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 17,
+                    "argmax_hit": {
+                        "row": 61,
+                        "col": 151,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 18,
+                    "argmax_hit": {
+                        "row": 156,
+                        "col": 115,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 19,
+                    "argmax_hit": {
+                        "row": 122,
+                        "col": 120,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 20,
+                    "argmax_hit": {
+                        "row": 147,
+                        "col": 64,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 21,
+                    "argmax_hit": {
+                        "row": 179,
+                        "col": 165,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 22,
+                    "argmax_hit": {
+                        "row": 255,
+                        "col": 11,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 23,
+                    "argmax_hit": {
+                        "row": 170,
+                        "col": 55,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 24,
+                    "argmax_hit": {
+                        "row": 89,
+                        "col": 155,
+                        "hit": false
+                    }
+                }
+            ],
+            "n_hit_true": 5
+        },
+        "stfpm": {
+            "results": [
+                {
+                    "idx": 13,
+                    "argmax_hit": {
+                        "row": 130,
+                        "col": 171,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 14,
+                    "argmax_hit": {
+                        "row": 150,
+                        "col": 178,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 15,
+                    "argmax_hit": {
+                        "row": 156,
+                        "col": 122,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 16,
+                    "argmax_hit": {
+                        "row": 150,
+                        "col": 194,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 17,
+                    "argmax_hit": {
+                        "row": 94,
+                        "col": 137,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 18,
+                    "argmax_hit": {
+                        "row": 163,
+                        "col": 108,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 19,
+                    "argmax_hit": {
+                        "row": 155,
+                        "col": 115,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 20,
+                    "argmax_hit": {
+                        "row": 81,
+                        "col": 133,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 21,
+                    "argmax_hit": {
+                        "row": 105,
+                        "col": 104,
+                        "hit": true
+                    }
+                },
+                {
+                    "idx": 22,
+                    "argmax_hit": {
+                        "row": 242,
+                        "col": 18,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 23,
+                    "argmax_hit": {
+                        "row": 145,
+                        "col": 82,
+                        "hit": false
+                    }
+                },
+                {
+                    "idx": 24,
+                    "argmax_hit": {
+                        "row": 102,
+                        "col": 158,
+                        "hit": true
+                    }
+                }
+            ],
+            "n_hit_true": 4
+        }
+    }
+}
