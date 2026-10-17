@@ -27,7 +27,9 @@ def _denormalize_image(image: Tensor) -> Tensor:
     return unnormalized_image
 
 
-def generate_plots(image: Tensor, mask: Tensor, anomaly_map: Tensor, vmin: float | None = None, vmax: float | None = None) -> plt.Figure:
+def generate_plots(
+    image: Tensor, mask: Tensor, anomaly_map: Tensor, vmin: float | None = None, vmax: float | None = None, title: str | None = None
+) -> plt.Figure:
     """Generate plots for an image, its ground truth mask, and the corresponding anomaly map.
 
     Args:
@@ -36,6 +38,7 @@ def generate_plots(image: Tensor, mask: Tensor, anomaly_map: Tensor, vmin: float
         anomaly_map (Tensor): The anomaly map tensor of shape (H, W).
         vmin (float | None, optional): Minimum value for the anomaly map colormap. Defaults to None.
         vmax (float | None, optional): Maximum value for the anomaly map colormap. Defaults to None.
+        title (str | None, optional): The title for the image plot. Defaults to None.
 
     Returns:
         plt.Figure: The generated matplotlib figure containing the image, mask, and anomaly map.
@@ -51,7 +54,7 @@ def generate_plots(image: Tensor, mask: Tensor, anomaly_map: Tensor, vmin: float
 
     # axes 0 : original image
     axes[0].imshow(unnormalized_image)
-    axes[0].set_title("Image")
+    axes[0].set_title(title if title is not None else "Image")
     axes[0].axis("off")
 
     # axes 1 : ground truth mask
