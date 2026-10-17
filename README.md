@@ -1,48 +1,118 @@
 # Smart Inspection Edge Platform
 
-# Purpose :
+Industrial anomaly detection built to understand the methods, not just call a library: PaDiM and STFPM re-implemented from scratch in PyTorch and benchmarked head to head on MVTec AD using image and pixel AUROC. Next steps: packaging as a service (FastAPI, Streamlit, Docker), then edge inference on a Jetson Orin Nano with ONNX and TensorRT. It is the first step of a longer path toward real-time perception for robotics.
 
-Smart Industrial Anomaly Detection project, from dataset to real edge deployment
+## Status (October 2026)
 
-## Phase I : Software Platform || Phase II : Edge AI deployment
+**Phase 1: Software Platform (in progress)**
+- [x] MVTec AD data pipeline (`AnomalyDataset`, lazy loading, binary masks)
+- [x] PaDiM and STFPM from scratch, checked against their papers
+- [x] Training, evaluation (image and pixel AUROC, per defect type), benchmark (FPS, VRAM)
+- [x] Anomaly map visualization, CI (ruff + pytest)
+- [ ] FastAPI service (`/predict`, `/health`, `/metrics`), decision threshold, Precision/Recall/F1
+- [ ] Streamlit dashboard, Docker, automatic PDF report
+- [ ] Human feedback loop, degraded conditions (lighting, occlusion, sensor noise)
 
-## Status : In Progress
+**Phase 2: Edge AI deployment (planned)**: ONNX export, TensorRT (C++ API), FP16/INT8, Jetson Orin Nano.
 
-## Stack planned
+## Results (MVTec AD, test set, GPU, seed 42)
 
-- Pytorch, FastAPI, Streamlit, ONNX/TensorRT, Jetson Orin Nano, Docker
+| | bottle image AUROC | bottle pixel AUROC | cable image AUROC | cable pixel AUROC |
+|---|---|---|---|---|
+| STFPM | 1.000 | 0.988 | 0.914 | 0.947 |
+| PaDiM | 0.994 | 0.983 | 0.852 | 0.974 |
 
----
+| Cable | STFPM | PaDiM |
+|---|---|---|
+| Throughput (batch 1) | ~456 FPS | ~582 FPS |
+| Resident VRAM | ~102 MB | ~375 MB |
+| VRAM per inference | ~10 MB | ~13 MB |
 
-## Setup the project
+Measured on one machine (RTX 3070 Ti). Throughput is 1000 / median latency over 60 single-image predictions (after 10 warm-up runs, host-to-device transfer included). Image preprocessing (resize, normalization) is excluded.
 
-Clone the repository and create a virtual environment with Python 3.12 or higher. Install the required pip dependencies:
+The per-defect AUROC on cable is lowest for `cable_swap` (STFPM 0.736, PaDiM 0.716), an inconclusive result under the decision rule written beforehand (0.65 to 0.8 = inconclusive, see the technical log).
+
+Anomaly maps (cable): [outputs/figures/figure_20261004_123157/comparison/](outputs/figures/figure_20261004_123157/comparison/) shows PaDiM and STFPM maps on the same images (3 best-detected and 3 most-missed anomalies per method, color scale shared per method).
+
+## Known limits
+
+- Only `bottle` and `cable` are evaluated (out of 15 MVTec categories), one training run per method.
+- No decision threshold yet: results are threshold-free AUROC.
+- Results can differ slightly between CPU and GPU, even with a fixed seed.
+- Checkpoints are not versioned (`*.pt` is ignored): `scripts/benchmark_fps_vram.py`, `scripts/compare_method_bysubcategory.py` and `scripts/generate_*.py` read checkpoint names written as constants at the top of each script.
+
+## Project layout
+
+```text
+.
+├── configs/                 # common.yaml, padim.yaml, stfpm.yaml
+├── docs/
+│   └── TECHNICAL_LOG.md     # design decisions, bugs, results by session
+├── outputs/
+│   ├── figures/             # anomaly map figures (selected runs versioned)
+│   ├── models/              # checkpoints (*.pt, not versioned)
+│   └── reports/             # JSON reports (AUROC, benchmark, diagnostics)
+├── scripts/                 # comparison, benchmark, figures (debug/: step-by-step checks)
+├── src/smart_inspection/
+│   ├── api/                 # FastAPI service (Phase 1, not started)
+│   ├── config/              # YAML loading and path resolution
+│   ├── data/                # AnomalyDataset
+│   ├── evaluation/          # AUROC, FPS/VRAM benchmark, reference checks
+│   ├── io/                  # run ids, JSON, figures
+│   ├── models/              # AnomalyMethod (abstract), factory, padim/, stfpm/
+│   ├── training/            # generic train() orchestrator
+│   └── visualization/       # anomaly map figures
+└── tests/                   # pytest (integration tests need the dataset and pretrained weights)
+```
+
+## Setup
+
+Python 3.12 or higher.
 
 ```bash
-git clone https://github.com/Soewyth/smart-inspection-edge-platform.git
+git clone https://github.com/dhesdin/smart-inspection-edge-platform.git
 cd smart-inspection-edge-platform
 make setup
+source .venv/bin/activate
 ```
 
-For GPU support, make sure to install the correct version. It can depend on your system if you have a computer with a GPU CUDA or if you only have a CPU. Please refer to : [PyTorch website](https://pytorch.org/get-started/locally/).
+`make setup` installs the project with the `dev` and `edge` extras. For GPU support, install the PyTorch build that matches your system: [PyTorch website](https://pytorch.org/get-started/locally/).
 
-### For Windows User
+Windows:
 
 ```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -e ".[dev]"
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev,edge]"
 ```
 
-## Dataset :
+## Dataset
 
-You can download the MVTec Anomaly Detection dataset from the official website : [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad/). The dataset is subject to the **CC BY-NC-SA** license , which means that is free for non-commercial use but you must give appropriate credit.
+Download MVTec AD from the [official site](https://www.mvtec.com/company/research/datasets/mvtec-ad/) and place it in `datasets/mvtec_anomaly_detection/`. The dataset is not included in this repository and is licensed CC BY-NC-SA 4.0 (non-commercial use, attribution required).
 
-Once the dataset is downloaded, place it in the `datasets/mvtec_anomaly_detection/` directory.
+## Usage
 
----
+```bash
+python scripts/compare_padim_stfpm.py            # trains both methods, saves checkpoints and a JSON report
+python scripts/benchmark_fps_vram.py             # FPS and VRAM per method
+python scripts/compare_method_bysubcategory.py   # AUROC per defect type, checked against a reference report
+python scripts/generate_anomaly_figures.py       # anomaly maps: best-detected, most-missed, highest-scored normals
+python scripts/generate_cable_swap_figures.py    # cable_swap: maps, score diagnostic, argmax-in-mask test
+make lint        # ruff check + format check
+make format      # ruff fix + format
+make test        # all tests, including those that need the dataset or pretrained weights
+```
 
-## LICENSE
+`compare_padim_stfpm.py` trains on `cable`: set `category_dataset` in the script to `bottle` for the bottle results. The other scripts load existing checkpoints and reports: edit the constants at the top of each script (`CHECKPOINTS`, `REFERENCE_REPORT`, ...).
 
-This project uses the **dataset MVTec** subject to its own license **CC BY-NC-SA**.
-Otherwise the project is subject to the **MIT** license.
+CI runs `pytest -q -m "not integration"` (no dataset needed).
+
+## References
+
+- Defard et al., *PaDiM: a Patch Distribution Modeling Framework for Anomaly Detection and Localization*, 2020 (arXiv:2011.08785)
+- Wang et al., *Student-Teacher Feature Pyramid Matching for Anomaly Detection*, BMVC 2021 (arXiv:2103.04257)
+- Bergmann et al., *MVTec AD: A Comprehensive Real-World Dataset for Unsupervised Anomaly Detection*, CVPR 2019
+
+## License
+
+Code: MIT. Dataset: MVTec AD, CC BY-NC-SA 4.0.
