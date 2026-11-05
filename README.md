@@ -67,7 +67,7 @@ Anomaly maps (cable): [outputs/figures/figure_20261004_123157/comparison/](outpu
 
 ## Setup
 
-Python 3.12 or higher.
+Python 3.12 or higher and [uv](https://docs.astral.sh/uv/getting-started/installation/) (uv downloads a matching Python if none is installed).
 
 ```bash
 git clone https://github.com/dhesdin/smart-inspection-edge-platform.git
@@ -76,14 +76,27 @@ make setup
 source .venv/bin/activate
 ```
 
-`make setup` installs the project with the `dev` and `edge` extras. For GPU support, install the PyTorch build that matches your system: [PyTorch website](https://pytorch.org/get-started/locally/).
+`make setup` runs `uv sync --locked` with every extra and the CUDA 13.2 PyTorch build (workstation). For a smaller target, pass the extras you need: `make setup EXTRAS=serve,edge`, or `make setup EXTRAS=train,cpu,dev` without an NVIDIA GPU.
+
+Dependencies are split by target. The core (`numpy`, `pyyaml`, `pillow`) is always installed.
+
+| Extra | Target | Contents |
+|---|---|---|
+| `train` | Workstation with NVIDIA GPU | torch, torchvision, scipy, scikit-learn, matplotlib |
+| `export` | ONNX export (install with `train`, needs torch) | onnx |
+| `serve` | Inference API | fastapi, uvicorn, python-multipart |
+| `dashboard` | Dashboard | streamlit, matplotlib |
+| `edge` | Edge runtime, no torch | onnxruntime (CPU; on Jetson, the GPU runtime comes from JetPack) |
+| `dev` | Lint and tests | ruff, pytest, httpx |
+| `cpu` / `cu132` | PyTorch build, with `train` (exactly one) | torch and torchvision from the CPU-only or CUDA 13.2 PyTorch index |
+
+Every target installs from the same `uv.lock` (exact versions for all platforms). After changing dependencies in `pyproject.toml`, run `uv lock` and commit `uv.lock`.
 
 Windows:
 
 ```bash
-python -m venv .venv
+uv sync --locked --extra train --extra cu132 --extra export --extra serve --extra dashboard --extra edge --extra dev
 .venv\Scripts\activate
-pip install -e ".[dev,edge]"
 ```
 
 ## Dataset
@@ -105,7 +118,7 @@ make test        # all tests, including those that need the dataset or pretraine
 
 `compare_padim_stfpm.py` trains on `cable`: set `category_dataset` in the script to `bottle` for the bottle results. The other scripts load existing checkpoints and reports: edit the constants at the top of each script (`CHECKPOINTS`, `REFERENCE_REPORT`, ...).
 
-CI runs `pytest -q -m "not integration"` (no dataset needed).
+CI runs two jobs: `lint` (ruff, core + `dev` only) and `test` (`pytest -q -m "not integration"` with CPU-only torch, no dataset needed).
 
 ## References
 
