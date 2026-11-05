@@ -3,4 +3,3 @@ params:
   optimizer: sgd # only sgd can be used for stfpm, but write here explictly for clarity
   momentum: 0.9 # Standard value for sgd optimizer
   learning_rate: 0.4 # papers default value
-  validation_split_ratio: 0.2

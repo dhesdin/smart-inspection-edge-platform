@@ -5,6 +5,8 @@ params:
   backbone: resnet18
   layers: ["layer1", "layer2", "layer3"] # to adjust for memory cost.  [layer1,2,3] -> default value from Papers [64+128+256] = n dim
   seed: 42
+  calibration_ratio: 0.2
+  validation_ratio: 0.2
   cudnn_deterministic: true
   device: cuda
   input_size: 256 # https://anomalib.readthedocs.io/en/v1.0.0/markdown/guides/reference/models/image/{padim.html, stfpm.html}

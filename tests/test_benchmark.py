@@ -30,8 +30,8 @@ class _FakeMethod(AnomalyMethod):
         self.seen_devices: list[str] = []
 
     @property
-    def validation_split_ratio(self) -> float | None:
-        return None
+    def requires_validation(self) -> bool:
+        return False
 
     def save(self, file_path: Path) -> None:
         pass

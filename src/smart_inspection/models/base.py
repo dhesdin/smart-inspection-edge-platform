@@ -12,11 +12,11 @@ class AnomalyMethod(ABC):
 
     @property
     @abstractmethod
-    def validation_split_ratio(self) -> float | None:
+    def requires_validation(self) -> bool:
         """
-        Return the ratio of the validation split.
+        Return whether the method requires a validation set.
         Returns:
-            float | None: The validation split ratio.
+            bool: True if a validation set is required, False otherwise.
         """
         pass
 

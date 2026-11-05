@@ -174,8 +174,8 @@ class PaDiM(AnomalyMethod):
         return score_anomaly, anomaly_map
 
     @property
-    def validation_split_ratio(self) -> float | None:
-        return None
+    def requires_validation(self) -> bool:
+        return False
 
     def save(self, file_path: Path) -> None:
         """

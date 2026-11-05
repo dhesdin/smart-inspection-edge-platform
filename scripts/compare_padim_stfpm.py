@@ -1,3 +1,6 @@
+# BROKEN since 2026-11-05: train() now receives train_dataset/val_dataset already split by the caller
+# and no longer splits internally. This script still uses the old signature and will be replaced by the
+# decision-threshold protocol script. The frozen reference checkpoints remain loadable.
 import torch
 
 from smart_inspection.config.loader import resolve_config_paths

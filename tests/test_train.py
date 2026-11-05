@@ -7,20 +7,22 @@ from torch.utils.data import DataLoader, Dataset
 from smart_inspection.models.base import AnomalyMethod
 from smart_inspection.training.train import train
 
+SEED = 42
+
 
 class _RecordingMethod(AnomalyMethod):
     """AnomalyMethod that records the loaders given to fit and the path given to save."""
 
-    def __init__(self, validation_split_ratio: float | None = None) -> None:
-        self._validation_split_ratio = validation_split_ratio
+    def __init__(self, requires_validation: bool = False) -> None:
+        self._requires_validation = requires_validation
         self.n_fit_calls = 0
         self.train_loader: DataLoader | None = None
         self.val_loader: DataLoader | None = None
         self.saved_path: Path | None = None
 
     @property
-    def validation_split_ratio(self) -> float | None:
-        return self._validation_split_ratio
+    def requires_validation(self) -> bool:
+        return self._requires_validation
 
     def save(self, file_path: Path) -> None:
         self.saved_path = file_path
@@ -50,40 +52,30 @@ class _CountingDataset(Dataset):
         return {"image": torch.tensor([float(idx)]), "label": 0}
 
 
-# Without validation split (ratio None), the whole dataset is used for training and no val loader is built.
-def test_train_without_validation_split_uses_whole_dataset():
-    method = _RecordingMethod(validation_split_ratio=None)
+# fit is called exactly once, with the loaders built by train.
+def test_train_calls_fit_once():
+    method = _RecordingMethod()
 
-    train(method, _CountingDataset(10), batch_size=2)
+    train(method, _CountingDataset(10), None, batch_size=2, seed=SEED)
 
-    assert len(method.train_loader.dataset) == 10
-    assert method.val_loader is None
+    assert method.n_fit_calls == 1
 
 
-# With a validation ratio, the dataset is split into train and validation subsets of the right sizes.
-def test_train_with_validation_split_splits_the_dataset():
-    method = _RecordingMethod(validation_split_ratio=0.2)
+# The datasets are used as given, without any further split.
+def test_train_uses_datasets_as_given():
+    method = _RecordingMethod(requires_validation=True)
 
-    train(method, _CountingDataset(10), batch_size=2)
+    train(method, _CountingDataset(8), _CountingDataset(2), batch_size=2, seed=SEED)
 
     assert len(method.train_loader.dataset) == 8
     assert len(method.val_loader.dataset) == 2
 
 
-# fit is called exactly once, with the loaders built by train.
-def test_train_calls_fit_once():
-    method = _RecordingMethod()
-
-    train(method, _CountingDataset(10), batch_size=2)
-
-    assert method.n_fit_calls == 1
-
-
 # The batch size is forwarded to the loaders.
 def test_train_uses_given_batch_size():
-    method = _RecordingMethod(validation_split_ratio=0.2)
+    method = _RecordingMethod(requires_validation=True)
 
-    train(method, _CountingDataset(20), batch_size=4)
+    train(method, _CountingDataset(16), _CountingDataset(4), batch_size=4, seed=SEED)
 
     assert method.train_loader.batch_size == 4
     assert method.val_loader.batch_size == 4
@@ -91,43 +83,12 @@ def test_train_uses_given_batch_size():
 
 # drop_last applies to the training loader only: the validation loader keeps every sample.
 def test_train_drop_last_applies_to_training_loader_only():
-    method = _RecordingMethod(validation_split_ratio=0.3)
+    method = _RecordingMethod(requires_validation=True)
 
-    # 10 samples -> 7 train / 3 val, batch_size=2
-    train(method, _CountingDataset(10), batch_size=2, drop_last=True)
+    train(method, _CountingDataset(7), _CountingDataset(3), batch_size=2, seed=SEED, drop_last=True)
 
     assert len(method.train_loader) == 3  # 7 // 2, the incomplete batch is dropped
     assert len(method.val_loader) == 2  # ceil(3 / 2), the incomplete batch is kept
-
-
-# The same seed gives the same train/validation split, a different seed gives a different one.
-def test_train_split_is_reproducible_with_seed():
-    def train_indices(seed: int) -> list[int]:
-        method = _RecordingMethod(validation_split_ratio=0.2)
-        train(method, _CountingDataset(100), batch_size=4, seed=seed)
-        return list(method.train_loader.dataset.indices)
-
-    assert train_indices(seed=0) == train_indices(seed=0)
-    assert train_indices(seed=0) != train_indices(seed=1)
-
-
-# A validation ratio outside the open interval (0, 1) is rejected.
-@pytest.mark.parametrize("ratio", [0.0, 1.0, -0.1, 1.5])
-def test_train_rejects_invalid_validation_ratio(ratio):
-    method = _RecordingMethod(validation_split_ratio=ratio)
-
-    with pytest.raises(ValueError, match=r"must be in \(0, 1\)"):
-        train(method, _CountingDataset(10), batch_size=2)
-
-
-# A split that leaves the validation set empty (1 sample, ratio 0.5) is rejected before fit.
-def test_train_rejects_split_with_empty_subset():
-    method = _RecordingMethod(validation_split_ratio=0.5)
-
-    with pytest.raises(ValueError, match="empty subset"):
-        train(method, _CountingDataset(1), batch_size=1)
-
-    assert method.n_fit_calls == 0
 
 
 # A training loader with zero batches (3 samples, batch_size=10, drop_last) is rejected before fit.
@@ -135,9 +96,40 @@ def test_train_rejects_empty_training_loader():
     method = _RecordingMethod()
 
     with pytest.raises(ValueError, match="Empty training loader"):
-        train(method, _CountingDataset(3), batch_size=10, drop_last=True)
+        train(method, _CountingDataset(3), None, batch_size=10, seed=SEED, drop_last=True)
 
     assert method.n_fit_calls == 0
+
+
+# A method that requires validation cannot be trained without a validation dataset.
+def test_train_rejects_missing_val_dataset_when_required():
+    method = _RecordingMethod(requires_validation=True)
+
+    with pytest.raises(ValueError, match="val_dataset is required"):
+        train(method, _CountingDataset(10), None, batch_size=2, seed=SEED)
+
+    assert method.n_fit_calls == 0
+
+
+# A method that does not require validation ignores a provided val_dataset.
+def test_train_ignores_val_dataset_when_not_required():
+    method = _RecordingMethod(requires_validation=False)
+
+    train(method, _CountingDataset(10), _CountingDataset(2), batch_size=2, seed=SEED)
+
+    assert method.n_fit_calls == 1
+    assert method.val_loader is None
+
+
+# The seed controls the shuffling order of the training loader.
+def test_train_seed_controls_shuffle_order():
+    def first_epoch_order(seed: int) -> list[float]:
+        method = _RecordingMethod()
+        train(method, _CountingDataset(50), None, batch_size=5, seed=seed)
+        return [v for batch in method.train_loader for v in batch["image"].flatten().tolist()]
+
+    assert first_epoch_order(0) == first_epoch_order(0)
+    assert first_epoch_order(0) != first_epoch_order(1)
 
 
 # When save_path is given, the trained method is saved to that path.
@@ -145,7 +137,7 @@ def test_train_saves_model_when_save_path_is_given(tmp_path):
     method = _RecordingMethod()
     save_path = tmp_path / "model.pt"
 
-    train(method, _CountingDataset(10), batch_size=2, save_path=save_path)
+    train(method, _CountingDataset(10), None, batch_size=2, seed=SEED, save_path=save_path)
 
     assert method.saved_path == save_path
 
@@ -154,6 +146,6 @@ def test_train_saves_model_when_save_path_is_given(tmp_path):
 def test_train_does_not_save_without_save_path():
     method = _RecordingMethod()
 
-    train(method, _CountingDataset(10), batch_size=2)
+    train(method, _CountingDataset(10), None, batch_size=2, seed=SEED)
 
     assert method.saved_path is None

@@ -34,7 +34,6 @@ class STFPM(AnomalyMethod):
         self.param_optimizer = params_common["optimizer"]
         self.param_momentum = params_common["momentum"]
         self.param_learning_rate = params_common["learning_rate"]
-        self.param_validation_split_ratio = params_common["validation_split_ratio"]
         param_seed = params_common["seed"]
         param_cudnn_deterministic = params_common["cudnn_deterministic"]
         self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
@@ -221,8 +220,8 @@ class STFPM(AnomalyMethod):
         return score, anomaly_map
 
     @property
-    def validation_split_ratio(self) -> float | None:
-        return self.param_validation_split_ratio
+    def requires_validation(self) -> bool:
+        return True
 
     def save(self, file_path: Path) -> None:
         """

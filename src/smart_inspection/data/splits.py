@@ -38,7 +38,6 @@ def split_data(
         raise ValueError("validation_ratio must be between 0 and 1.")
 
     # reproducible random permutation of image indices
-
     generator = torch.Generator().manual_seed(seed)
     indices = torch.randperm(n_images, generator=generator).tolist()
 
