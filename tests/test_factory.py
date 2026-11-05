@@ -25,7 +25,7 @@ def test_create_method_stfpm_returns_stfpm_instance():
 
 def test_create_method_invalid_name_raises_value_error():
     """create_method should raise ValueError for an unknown method name."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid method name"):
         create_method("methode_inexistante")
 
 

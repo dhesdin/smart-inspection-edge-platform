@@ -28,7 +28,8 @@ stfpm = create_method("stfpm")
 dataset = AnomalyDataset(category="bottle", split="train")
 
 
-assert stfpm.validation_split_ratio is not None and stfpm.validation_split_ratio == validation_split_ratio
+assert stfpm.validation_split_ratio is not None
+assert stfpm.validation_split_ratio == validation_split_ratio
 print(f"Validation split ratio for STFPM: {stfpm.validation_split_ratio}")
 
 print("=============== [MODEL STFPM] --> Test  training method ===============")
@@ -62,8 +63,10 @@ print("PaDiM not using a validation split.")
 
 train(method=padim, dataset=dataset, batch_size=batch_size, seed=seed, shuffle=True, num_workers=2, drop_last=False)
 
-assert padim.mean is not None and padim.mean.shape[1] == padim_common_dict["params"]["n_features"]
+assert padim.mean is not None
+assert padim.mean.shape[1] == padim_common_dict["params"]["n_features"]
 assert padim.cov is not None
-assert padim.selected_indices is not None and len(padim.selected_indices) == padim_common_dict["params"]["n_features"]
+assert padim.selected_indices is not None
+assert len(padim.selected_indices) == padim_common_dict["params"]["n_features"]
 
 print("PaDiM internal state changed correctly.")

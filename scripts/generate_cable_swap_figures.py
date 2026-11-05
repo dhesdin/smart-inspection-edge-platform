@@ -133,7 +133,7 @@ def main() -> None:
 
     # subcategory report
     subcategory_report = reports_dir / f"{SUBCATEGORY_REPORT}.json"
-    with open(subcategory_report, "r") as f:
+    with open(subcategory_report) as f:
         subcategory_data = json.load(f)
     by_subcategory = subcategory_data["stfpm"]["by_subcategory"]
     if SUBCATEGORY not in by_subcategory:

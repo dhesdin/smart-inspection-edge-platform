@@ -37,7 +37,7 @@ def test_denormalize_image_returns_hwc() -> None:
 # An image that is not (3, H, W) is rejected.
 @pytest.mark.parametrize("shape", [(SIZE, SIZE), (1, SIZE, SIZE), (1, 3, SIZE, SIZE)])
 def test_denormalize_image_rejects_wrong_shape(shape: tuple[int, ...]) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected an image of shape"):
         _denormalize_image(torch.zeros(shape))
 
 

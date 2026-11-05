@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,30 +7,88 @@ name = "smart-inspection-edge-platform"
 version = "0.1.0"
 description = "Smart Inspection Edge Platform for Computer Vision Applications (industrial inspection)"
 requires-python = ">=3.12"
-dependencies = [
-"numpy>=2.5,<3.0",
-"scipy>=1.18,<2.0",
-"scikit-learn>=1.9,<2.0",
-"matplotlib>=3.11,<4.0",
-"fastapi>=0.139,<0.140",
-"uvicorn>=0.51,<0.52",
-"streamlit>=1.59,<2.0",
-"pyyaml>=6.0,<7.0",
-"torch>=2.13,<3.0",
-"torchvision>=0.28,<0.29"
 
+# Core = what every target needs (training box, API server, Jetson).
+dependencies = [
+    "numpy>=2.5,<3.0",
+    "pyyaml>=6.0,<7.0",
+    "pillow>=10.0",
 ]
 
 [project.optional-dependencies]
-dev = [
-"ruff>=0.15,<0.16",
-"pytest>=9.1,<10.0"
+# Training / evaluation (workstation with NVIDIA GPU).
+# torch and torchvision are a coupled pair: torchvision 0.28.x requires torch==2.13.x exactly.
+# check compatibility on documentation.
+train = [
+    "torch~=2.13.0",
+    "torchvision~=0.28.0",
+    "scipy>=1.18,<2.0",
+    "scikit-learn>=1.9,<2.0",
+    "matplotlib>=3.11,<4.0",
 ]
+# ONNX export (needs torch, so install together with "train").
+export = [
+    "onnx>=1.22,<2.0",
+]
+# Inference API.
+serve = [
+    "fastapi>=0.139,<0.140",
+    "uvicorn>=0.51,<0.52",
+    "python-multipart>=0.0.18",
+]
+# Dashboard.
+dashboard = [
+    "streamlit>=1.59,<2.0",
+    "matplotlib>=3.11,<4.0",
+]
+# Edge runtime (no torch). On Jetson, onnxruntime-gpu / TensorRT come from NVIDIA's
+# JetPack ecosystem, not from this CPU package: check at Phase 2.
 edge = [
-"onnx>=1.22,<2.0",
-"onnxruntime>=1.27,<2.0"
+    "onnxruntime>=1.27,<2.0",
+]
+dev = [
+    "ruff>=0.15,<0.16",
+    "pytest>=9.1,<10.0",
+    "httpx>=0.27",
+]
+# PyTorch build selector, to combine with "train": exactly one of them.
+# Same torch/torchvision versions, different compiled backend (see [tool.uv.sources]).
+cpu = [
+    "torch~=2.13.0",
+    "torchvision~=0.28.0",
+]
+cu132 = [
+    "torch~=2.13.0",
+    "torchvision~=0.28.0",
 ]
 
+[tool.uv]
+# Lock only for the platforms we target (Linux workstation / CI / Jetson, Windows workstation).
+environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
+# cpu and cu132 pick different torch builds: they cannot be installed together.
+conflicts = [[{ extra = "cpu" }, { extra = "cu132" }]]
+
+[tool.uv.sources]
+# torch/torchvision come from the PyTorch index matching the selected extra; everything else from PyPI.
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu132", extra = "cu132" },
+]
+torchvision = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu132", extra = "cu132" },
+]
+
+# explicit = true: the index serves only the packages mapped to it above (no dependency confusion).
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -43,10 +101,10 @@ include = ["smart_inspection*"]
 line-length = 150
 target-version = "py312"
 include = ["src/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
-exclude = [".git", "__pycache__", "build", "dist"]
+extend-exclude = ["build", "dist"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "B", "UP", "NPY", "PT"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -54,6 +112,7 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--strict-markers -ra"
 markers = [
     "integration: needs external resources (MVTec dataset on disk, pretrained weights download); deselected in CI",
 ]

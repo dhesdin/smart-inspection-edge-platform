@@ -61,10 +61,10 @@ def read_yaml(config_path: str) -> dict:
     config_path = _get_config_path(config_path)
     # No FileNotFoundError catch needed :  _get_config_path already checks if the file exists
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             return yaml.safe_load(f)
-    except yaml.YAMLError:
-        raise yaml.YAMLError(f"Configuration file {config_path} is broken")
+    except yaml.YAMLError as err:
+        raise yaml.YAMLError(f"Configuration file {config_path} is broken") from err
 
 
 def merge_yaml(common_config: dict, model_config: dict) -> dict:

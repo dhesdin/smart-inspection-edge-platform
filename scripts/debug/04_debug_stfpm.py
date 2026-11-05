@@ -43,7 +43,7 @@ else:
 
 
 # VErification between Student and Teacher model: the weights
-if all(torch.equal(t_param, s_param) for t_param, s_param in zip(stfpm.teacher.parameters(), stfpm.student.parameters())):
+if all(torch.equal(t_param, s_param) for t_param, s_param in zip(stfpm.teacher.parameters(), stfpm.student.parameters(), strict=True)):
     raise AssertionError("[WEIGHTS] --> Teacher and Student weights are the same, they should be different")
 else:
     print("[WEIGHTS] --> Teacher and Student weights are different, as expected")

@@ -56,7 +56,7 @@ def test_raises_value_error_when_no_samples_found(tmp_path, monkeypatch):
     fake_config = {**real_config, "data": {**real_config["data"], "datasets": tmp_path}}
     monkeypatch.setattr("smart_inspection.data.dataset.resolve_config_paths", lambda config_path: fake_config)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No samples found"):
         AnomalyDataset(category=category, split=split)
 
 

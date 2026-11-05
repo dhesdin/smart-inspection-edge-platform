@@ -84,7 +84,7 @@ def test_benchmark_rejects_zero_measures():
 # The method must never be called when the arguments are invalid.
 def test_benchmark_does_not_call_predict_on_invalid_arguments():
     method = _FakeMethod()
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="n_measures"):
         benchmark(method, _images(), n_warmup=1, n_measures=0, device=torch.device("cuda"))
     assert method.seen_values == []
 

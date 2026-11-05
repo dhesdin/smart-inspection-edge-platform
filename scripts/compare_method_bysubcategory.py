@@ -76,7 +76,7 @@ def main() -> None:
     reference_report = reports_dir / f"{REFERENCE_REPORT}.json"
     if not reference_report.exists():
         raise FileNotFoundError(f"Reference report '{REFERENCE_REPORT}.json' not found in '{reports_dir}'")
-    with open(reference_report, "r") as f:
+    with open(reference_report) as f:
         reference_data = json.load(f)
     if reference_data["config"]["dataset"] != category_dataset:
         raise ValueError(f"Reference report is on '{reference_data['config']['dataset']}', expected '{category_dataset}'")
