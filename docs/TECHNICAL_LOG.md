@@ -681,3 +681,20 @@ n = 12 images. Plancher de hasard de l'argmax non mesuré : 5/12 et 4/12 ne se l
 - Un score élevé n'est pas une localisation correcte : #22 a le score swap le plus haut des deux méthodes, pour une mauvaise raison.
 - Une impression se vérifie par un comptage : « ça a l'air de bien détecter » a été confronté à 5/12 et 4/12.
 - Le ratio au max global est difficile à interpréter lorsque la distribution des scores est lourde comme STFPM.
+
+---
+
+## Date : 5 novembre 2026 (seuil de décision : règle pré-enregistrée)
+
+### Règle (écrite avant exécution)
+
+1. **Seuil de décision :** T = P95 des scores de calibration ; une image est anormale si score >= T.
+2. **Découpage n images :** J'ai décidé de prendre 224 - floor(224 * 0.2) = 224 - 44 = 180. Donc 44 qui seront utilisées pour la calibration
+puis de ces 180 images, 20% seront utilisées pour la validation (STFPM), soit 36 images ce qui ramène à 144 images pour l'entraînement.
+Pour assurer une homogénéité dans la comparaison des modèles, 144 seront utilisées pour l'entraînement de chaque modèle. Même découpage et même seed  [Voir le fichier de configuration](../configs/common.yaml).
+3. **Percentile P95 :** J'ai décidé d'utiliser un p95 des scores de chaque modèle entraîné calculé sur les 44 normales de calibration comme seuil de décision pour déterminer si une image est considérée comme anormale.
+np.percentile(scores, 95) avec une interpolation linéaire. Un seuil trop haut risque de classer trop peu d'images comme anormales (faux négatifs), tandis qu'un seuil trop bas risque de générer trop de faux positifs (déclaré anomalie à tort).
+4. **Convention sur le signe :** J'utilise un >= et non > car pour moi une image avec un score exactement égal au seuil doit être considérée comme anormale (meme si cela risque d'arriver rarement sur float).
+5. **Ce qui est attendu :** Je m'attends à un taux de 5% de faux positifs soit 50 fausses alarmes sur 1000 pièces normales. Pour les faux négatifs en revanche, inconnus. Estimation fragile sur 44 images.
+6. **Ce que mesure le test :** Precision / Recall / F1 sur les 58 normales et les 92 anomalies (cat : cable), jamais utilisé pour fixer le seuil.
+7. **Angle mort :** Les modèles entraînés sur ces 144 images sont un nouveau run. Les AUROC de référence (224 images, `*_cable_cuda_20261003_171414`) restent la baseline gelée. Non comparables directement aux nouveaux AUROC
