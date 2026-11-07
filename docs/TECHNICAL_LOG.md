@@ -698,3 +698,5 @@ np.percentile(scores, 95) avec une interpolation linéaire. Un seuil trop haut r
 5. **Ce qui est attendu :** Je m'attends à un taux de 5% de faux positifs soit 50 fausses alarmes sur 1000 pièces normales. Pour les faux négatifs en revanche, inconnus. Estimation fragile sur 44 images.
 6. **Ce que mesure le test :** Precision / Recall / F1 sur les 58 normales et les 92 anomalies (cat : cable), jamais utilisé pour fixer le seuil.
 7. **Angle mort :** Les modèles entraînés sur ces 144 images sont un nouveau run. Les AUROC de référence (224 images, `*_cable_cuda_20261003_171414`) restent la baseline gelée. Non comparables directement aux nouveaux AUROC
+
+Batch size = 32 mais cette fois ci avec drop_last = False car 144 mod 32 = 16, donc le dernier batch ne sera pas complet mais sera tout de même utilisé pour correspondre à 144 images peu importe la méthode (papiers stfpm section 4.2).
