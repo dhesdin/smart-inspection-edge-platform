@@ -7,6 +7,7 @@ params:
   seed: 42
   calibration_ratio: 0.2
   validation_ratio: 0.2
+  threshold_percentile: 95
   cudnn_deterministic: true
   device: cuda
   input_size: 256 # https://anomalib.readthedocs.io/en/v1.0.0/markdown/guides/reference/models/image/{padim.html, stfpm.html}
