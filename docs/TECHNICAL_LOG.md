@@ -752,3 +752,40 @@ PaDiM est passé de 6,8 % en calibration (3/44) à 13,8 % en test (8/58).
 3. Seuil instable : le seuil dépend du P95 sur 44 images, donc des 3 scores les plus hauts. **Vérification** : garder le même modèle et ré-échantillonner les 44 scores de calibration avec remise, répéter par ex 1000 ou 2000 fois avec p95 pour mesurer la variation du seuil.
 
 Ces vérifications ne seront pas prévues pour l'instant.
+
+## 2026-11-15 : Artefact de déploiement et run de vérification
+
+### Contexte
+J'ai défini l'architecture de tracabilité et les clés requises pour le bon fonctionnement du /predict. 
+
+L'objectif est de s'assurer que le modèle et ses poids peuvent être correctement chargés et utilisés par le endpoint /predict, en garantissant la cohérence des seuils et des artefacts associés. Le threshold est dans le même fichier que les poids pour assurer cette cohérence.
+
+### Changements
+
+Pour ce faire j'ai créer : 
+- deux nouvelles signatures pour les modèles : `get_state` et `load_state` qui permettent de récupérer l'état complet du modèle et de le restaurer à partir de cet état.
+- artifact.py : création d'un fichier qui permet de tout récupérer et gérer. Config, modèles, poids, seuils,...
+- common.yaml : modification et ajout de la version exacte des poids : retiré DEFAULT, car si un jour le modèle vient à changer, les résultats ne seront plus bon.
+- run_threshold_protocol.py : Modification du script pour utiliser les fonctions et signature nécessaire.
+
+Commit : `9cf39c46e2609ca76dd8ba0ab5f5fe8820d66035` et `f09eb1cf3b59f4bab56a97b1ebba9de61f53d156`
+
+### Règle pré-enregistrée (écrite avant le lancement)
+- But du run : produire les artefacts et vérifier que les changements (get_state, poids explicites, script) ne modifient pas les résultats.
+- Référence : `threshold_protocol_cuda_20261107_193810`
+- Critère : T, calibration >= T, Precision / Recall / F1 et AUROC identiques au bit près, comparés dans le JSON.
+- Si écart : j'investigue la cause. Le run officiel reste celui du 7 novembre, et les artefacts de ce run ne servent pas tant que l'écart n'est pas expliqué.
+
+Valeurs de référence (run du 7 novembre) :
+| | PaDiM | STFPM |
+|---|---|---|
+| T | 16.9144 | 0.012234 |
+| Calibration >= T | 3/44 | 3/44 |
+| Precision / Recall / F1 | 0.8596 / 0.5326 / 0.6577 | 0.9688 / 0.6739 / 0.7949 |
+| AUROC image / pixel | 0.8381 / 0.9725 | 0.9359 / 0.9474 |
+
+### Résultats
+
+### Observations
+
+### Appris
