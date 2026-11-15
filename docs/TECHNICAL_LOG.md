@@ -700,3 +700,55 @@ np.percentile(scores, 95) avec une interpolation linéaire. Un seuil trop haut r
 7. **Angle mort :** Les modèles entraînés sur ces 144 images sont un nouveau run. Les AUROC de référence (224 images, `*_cable_cuda_20261003_171414`) restent la baseline gelée. Non comparables directement aux nouveaux AUROC
 
 Batch size = 32 mais cette fois ci avec drop_last = False car 144 mod 32 = 16, donc le dernier batch ne sera pas complet mais sera tout de même utilisé pour correspondre à 144 images peu importe la méthode (papiers stfpm section 4.2).
+
+### Résultats et analyse
+
+La run provient de  `threshold_protocol_cuda_20261107_193810`
+
+- Device : cuda
+- Nom GPU : GeForce RTX 3070 Ti
+- Batch Size : 32
+
+| Metric | PaDiM | STFPM |
+|-------|-------|-------|
+| Nombres d'images totale | 224  | 224 |
+| Nombres d'images calibration | 44 | 44 |
+| Nombres d'images validation | N/A | 36 |
+| Nombres d'images entraînement | 144 | 144 |
+| Threshold percentile| P95 | P95 |
+| Threshold | 16.9144 | 0.0122 |
+| n scores >= Threshold (sur les 44 de calibration) | 3 |  3 |
+| Precision | 0.8596 | 0.9688 |
+| Recall | 0.5326 | 0.6739 |
+| F1 | 0.6577 | 0.7949 |
+| TP | 49 | 62 |
+| FP | 8 | 2 |
+| FN | 43 | 30 |
+| TN | 50 | 56 |
+| AUROC IMAGE | 0.8381 | 0.9359 |
+| AUROC PIXEL | 0.9725 | 0.9474 |
+
+Sur cette machine (RTX 3070 Ti, torch 2.13.0+cu132), avec le seed 42 et cudnn_deterministic: true, réentraîner reproduit exactement les mêmes modèles et les mêmes résultats. Jusqu’ici, seul le rechargement de checkpoints était vérifié.
+
+LIMITE : un seul run a été effectué.
+
+#### Observations
+On observe globalement un meilleur comportement de STFPM par rapport à PaDiM.
+Taux de faux positif : 8/58 (13,8%) et 2/58 (3,4%).
+Taux de faux négatif : 43/92 (46,7%) et 30/92 (32,6%).
+Au dela d'un score global, on constate que STFPM présente une meilleure détection des anomalies, dans mon cas j'estime qu'il est plus fiable d'avoir un meilleur score sur les le recall (faux négatifs).
+Sur mes attentes, STFPM est en dessous de mes 5% prévus, PaDiM est bien au dessus. (pour les FP)
+
+### Hypothèses sur l'écart de faux positifs
+
+PaDiM est passé de 6,8% en calibration (3/44) à 13,8% en test.
+
+### Hypothèses sur l'écart de faux positifs
+
+PaDiM est passé de 6,8 % en calibration (3/44) à 13,8 % en test (8/58).
+
+1. Les images : il est possible que certaines images de test soient bien plus différentes que celles du jeu de calibration (éclairage, texture, bruit...). **Vérification** : récupérer les noms des 8 normales classées anormales par PaDiM, vérifier si les 2 faux positifs de STFPM en font partie, puis examiner les cartes d'anomalie pour comprendre pourquoi PaDiM échoue sur ces cas.
+2. Hasard d'échantillon : il est possible que l'écart soit dû au hasard, avec seulement 58 normales en test. **Vérification** : Calculer la probabilité d'observer au moins 8 faux positifs sur 58 avec taux de 5% (loi binomiale).
+3. Seuil instable : le seuil dépend du P95 sur 44 images, donc des 3 scores les plus hauts. **Vérification** : garder le même modèle et ré-échantillonner les 44 scores de calibration avec remise, répéter par ex 1000 ou 2000 fois avec p95 pour mesurer la variation du seuil.
+
+Ces vérifications ne seront pas prévues pour l'instant.

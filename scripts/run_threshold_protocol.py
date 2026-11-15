@@ -53,6 +53,7 @@ def main() -> None:
         model = create_method(method_name=method_name)
         checkpoint_stem = f"{method_name}_{CATEGORY_DATASET}_{run_id}"
         checkpoint = models_dir / f"{checkpoint_stem}.pt"
+        print(f"Training {method_name} with checkpoint {checkpoint}...")
         train(
             method=model,
             train_dataset=training_dataset,
@@ -64,6 +65,7 @@ def main() -> None:
             drop_last=False,
             save_path=checkpoint,
         )
+        print(f"Computing threshold for {method_name} using calibration set...")
         # collect score only from the calibration to compute the threshold
         calibration_score, _ = collect_scores(method=model, dataset=calibration_dataset)
         threshold = compute_threshold(scores=calibration_score, percentile=threshold_percentile)
@@ -76,13 +78,20 @@ def main() -> None:
             "max": float(calibration_score_array.max()),
             "n_scores_ge_threshold": int(np.sum(calibration_score_array >= threshold)),
         }
+        print(f"Collecting test scores and computing metrics for {method_name} using threshold {threshold}...")
         # collect test scores and compute metrics using the threshold
         test_scores, test_labels = collect_scores(method=model, dataset=test_dataset)
         metrics = compute_metrics(scores=test_scores, labels=test_labels, threshold=threshold)
 
+        print(f"Evaluating {method_name} on test set...")
         # evaluate the metrics and store the results
         evaluation = evaluate(method=model, test_loader=test_dataloader)
         # storage
+        print(
+            f"[{method_name}] T= {threshold:.6g} | calib >= T: {calibration_stats['n_scores_ge_threshold']}/{calibration_stats['n']} "
+            f"| P= {metrics['precision']:.4f} R= {metrics['recall']:.4f} F1= {metrics['f1']:.4f} | AUROC img= {evaluation['roc_auc']:.4f} "
+            f"px= {evaluation['roc_auc_pixel']:.4f}"
+        )
         results[method_name] = {
             "checkpoint": checkpoint_stem,
             "threshold": threshold,
@@ -90,6 +99,7 @@ def main() -> None:
             "metrics": metrics,
             "evaluation": evaluation,
         }
+        print(f"Finished processing {method_name}. Deleting model and clearing CUDA cache to free up GPU memory.")
         del model
         torch.cuda.empty_cache()
 
