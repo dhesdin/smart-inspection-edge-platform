@@ -36,6 +36,7 @@ outputs/*
 !outputs/reports/.gitkeep
 !outputs/logs/
 !outputs/logs/.gitkeep
+outputs/figures/**/*.png
 
 
 # Weights of models:
@@ -43,4 +44,3 @@ outputs/*
 *.pt
 *.onnx
 *.engine
-outputs/figures/*.png
