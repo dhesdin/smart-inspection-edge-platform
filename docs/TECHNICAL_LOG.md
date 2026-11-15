@@ -785,7 +785,15 @@ Valeurs de référence (run du 7 novembre) :
 | AUROC image / pixel | 0.8381 / 0.9725 | 0.9359 / 0.9474 |
 
 ### Résultats
+- Run `threshold_protocol_cuda_20261115_142709` : diff `jq` identique (seuls les noms de checkpoint diffèrent). Mais `git_dirty` = True dans les artefacts : la correction du `.gitignore` n'était pas commitée au lancement.
+- Run `threshold_protocol_cuda_20261115_152950` (commit `e1b8a6c`) : diff identique, `git_dirty` = False, T rechargé exact (PaDiM 16.914419746398927, STFPM 0.012233683140948417).
+- Résultat ok. Les artefacts officiels pour l'API sont ceux de `152950`.
 
 ### Observations
+- `load_artifact` accepte les deux artefacts : config, version du format et clés sont valides.
+- `git_dirty` est figé à la construction de l'artefact : recharger un ancien artefact ne le recalcule pas.
 
 ### Appris
+- Dans un `.gitignore`, `*` ne traverse pas les `/` : `outputs/figures/*.png` ne couvre pas les sous-dossiers, il faut `**/*.png`.
+- `weights="DEFAULT"` est un alias qui dépend de la version de torchvision : nommer les poids explicitement (`IMAGENET1K_V1`).
+- `torch.load(weights_only=True)` refuse les types non standards (`TorchVersion`, `np.float64`) : ne stocker que des types Python et des tenseurs.
