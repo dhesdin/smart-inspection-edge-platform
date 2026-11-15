@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -35,6 +36,30 @@ class AnomalyMethod(ABC):
         Load the model from the specified file path.
         Args:
             file_path (Path): The path to load the model from.
+        """
+        pass
+
+    @abstractmethod
+    def get_state(self) -> dict[str, Any]:
+        """
+        Return the state needed to restore the trained method.
+        The method only exposes its own learned state: it knows nothing about the
+        decision threshold, files on disk, or protocol metadata.
+        Returns:
+            dict[str, Any]: The learned state, with tensors detached and copied to CPU.
+        """
+        pass
+
+    @abstractmethod
+    def load_state(self, state: dict[str, Any]) -> None:
+        """
+        Restore the trained method from a state returned by get_state().
+        The method only restores its own learned state: it knows nothing about the
+        decision threshold, files on disk, or protocol metadata.
+        Args:
+            state (dict[str, Any]): The state returned by get_state().
+        Raises:
+            ValueError: If a required key is missing from state.
         """
         pass
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -196,6 +197,36 @@ class PaDiM(AnomalyMethod):
         self.cov = checkpoint["cov"]
         self.selected_indices = checkpoint["selected_indices"]
         # the checkpoint stores cov only (older checkpoints stay valid): rebuild the inverse once at load time
+        self.inv_cov = torch.linalg.inv(self.cov)  # (HW,C,C)
+
+    def get_state(self) -> dict[str, Any]:
+        """
+        Return the learned Gaussian parameters and the selected feature indices.
+        inv_cov is not included: it is rebuilt from cov by load_state().
+        Returns:
+            dict[str, Any]: {"mean", "cov", "selected_indices"}, detached CPU copies.
+        """
+        return {
+            "mean": self.mean.detach().cpu().clone(),
+            "cov": self.cov.detach().cpu().clone(),
+            "selected_indices": self.selected_indices.detach().cpu().clone(),
+        }
+
+    def load_state(self, state: dict[str, Any]) -> None:
+        """
+        Restore the learned Gaussian parameters on self.device and rebuild the inverse covariance.
+        Args:
+            state (dict[str, Any]): The state returned by get_state().
+        Raises:
+            ValueError: If "mean", "cov" or "selected_indices" is missing from state.
+        """
+        missing_keys = [key for key in ("mean", "cov", "selected_indices") if key not in state]
+        if missing_keys:
+            raise ValueError(f"PaDiM state is missing required keys: {missing_keys}")
+        self.mean = state["mean"].to(self.device)
+        self.cov = state["cov"].to(self.device)
+        self.selected_indices = state["selected_indices"].to(self.device)
+        # same rebuild as load(): the state stores cov only
         self.inv_cov = torch.linalg.inv(self.cov)  # (HW,C,C)
 
     @staticmethod

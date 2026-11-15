@@ -1,4 +1,6 @@
+import pytest
 import torch
+from torch.utils.data import DataLoader
 
 from smart_inspection.models.stfpm.model import STFPM
 
@@ -102,3 +104,44 @@ def test_compute_spatial_mean_loss():
 
     assert result.shape == (2, 1)
     assert torch.allclose(result, expected)
+
+
+def _image_loader(n_images: int, seed: int) -> DataLoader:
+    """Small loader of random 64x64 RGB images, in the {"image": tensor} format of the dataset."""
+    generator = torch.Generator().manual_seed(seed)
+    samples = [{"image": torch.rand(3, 64, 64, generator=generator)} for _ in range(n_images)]
+    return DataLoader(samples, batch_size=2)
+
+
+# get_state -> torch.save -> torch.load(weights_only=True) -> load_state on a new instance gives the same score.
+@pytest.mark.integration
+def test_state_round_trip_gives_same_score(tmp_path):
+    original = STFPM()
+    original.param_epochs = 1  # keep the test short: one epoch is enough to move away from the initial weights
+    original.fit(_image_loader(n_images=4, seed=0), _image_loader(n_images=2, seed=1))
+    image = torch.rand(3, 64, 64, generator=torch.Generator().manual_seed(2))
+    expected_score, expected_map = original.predict(image)
+
+    state = original.get_state()
+    assert all(tensor.device.type == "cpu" for tensor in state.values())
+    state_path = tmp_path / "stfpm_state.pt"
+    torch.save(state, state_path)
+
+    restored = STFPM()
+    restored.load_state(torch.load(state_path, weights_only=True))
+    assert not restored.student.training
+    score, anomaly_map = restored.predict(image)
+
+    assert torch.allclose(torch.tensor(score), torch.tensor(expected_score))
+    assert torch.allclose(anomaly_map, expected_map)
+
+
+def test_load_state_missing_key_raises():
+    # bypass __init__ (config + pretrained weights download): a tiny student is enough to check the keys
+    stfpm = STFPM.__new__(STFPM)
+    stfpm.device = torch.device("cpu")
+    stfpm.student = torch.nn.Linear(2, 2)
+    state = {"weight": torch.zeros(2, 2)}  # no "bias"
+
+    with pytest.raises(ValueError, match="bias"):
+        stfpm.load_state(state)

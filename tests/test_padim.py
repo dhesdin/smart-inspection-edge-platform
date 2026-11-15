@@ -1,4 +1,6 @@
+import pytest
 import torch
+from torch.utils.data import DataLoader
 
 from smart_inspection.models.padim.model import PaDiM
 
@@ -105,3 +107,41 @@ def test_load_computes_inverse_covariance(tmp_path):
     identity = torch.eye(c).expand(hw, c, c)
     assert padim.inv_cov.shape == (hw, c, c)
     assert torch.allclose(padim.inv_cov @ padim.cov, identity, atol=1e-4)
+
+
+def _image_loader(n_images: int, seed: int) -> DataLoader:
+    """Small loader of random 64x64 RGB images, in the {"image": tensor} format of the dataset."""
+    generator = torch.Generator().manual_seed(seed)
+    samples = [{"image": torch.rand(3, 64, 64, generator=generator)} for _ in range(n_images)]
+    return DataLoader(samples, batch_size=2)
+
+
+# get_state -> torch.save -> torch.load(weights_only=True) -> load_state on a new instance gives the same score.
+@pytest.mark.integration
+def test_state_round_trip_gives_same_score(tmp_path):
+    original = PaDiM()
+    original.fit(_image_loader(n_images=4, seed=0))
+    image = torch.rand(3, 64, 64, generator=torch.Generator().manual_seed(1))
+    expected_score, expected_map = original.predict(image)
+
+    state = original.get_state()
+    assert all(tensor.device.type == "cpu" for tensor in state.values())
+    state_path = tmp_path / "padim_state.pt"
+    torch.save(state, state_path)
+
+    restored = PaDiM()
+    restored.load_state(torch.load(state_path, weights_only=True))
+    score, anomaly_map = restored.predict(image)
+
+    assert torch.allclose(torch.tensor(score), torch.tensor(expected_score))
+    assert torch.allclose(anomaly_map, expected_map)
+
+
+def test_load_state_missing_key_raises():
+    # bypass __init__ (config + pretrained weights download): load_state() only needs `device`
+    padim = PaDiM.__new__(PaDiM)
+    padim.device = torch.device("cpu")
+    state = {"mean": torch.zeros(3, 4), "selected_indices": torch.arange(4)}  # no "cov"
+
+    with pytest.raises(ValueError, match="cov"):
+        padim.load_state(state)

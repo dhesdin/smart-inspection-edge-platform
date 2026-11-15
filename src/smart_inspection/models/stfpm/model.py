@@ -1,5 +1,6 @@
 import copy
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -238,6 +239,28 @@ class STFPM(AnomalyMethod):
             file_path (Path): The path to load the model from.
         """
         self.student.load_state_dict(torch.load(file_path, map_location=self.device))
+
+    def get_state(self) -> dict[str, Any]:
+        """
+        Return the student weights (the teacher is frozen and pretrained, so it is not part of the state).
+        Returns:
+            dict[str, Any]: The student state_dict, with tensors detached and copied to CPU.
+        """
+        return {name: tensor.detach().cpu().clone() for name, tensor in self.student.state_dict().items()}
+
+    def load_state(self, state: dict[str, Any]) -> None:
+        """
+        Load the student weights on self.device and put the student in eval mode.
+        Args:
+            state (dict[str, Any]): The state returned by get_state().
+        Raises:
+            ValueError: If a key of the student state_dict is missing from state.
+        """
+        missing_keys = [key for key in self.student.state_dict() if key not in state]
+        if missing_keys:
+            raise ValueError(f"STFPM state is missing required keys: {missing_keys}")
+        self.student.load_state_dict({name: tensor.to(self.device) for name, tensor in state.items()})
+        self.student.eval()
 
     @staticmethod
     def _normalize_features(features: Tensor) -> Tensor:

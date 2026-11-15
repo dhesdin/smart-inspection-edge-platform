@@ -39,6 +39,12 @@ class _FakeMethod(AnomalyMethod):
     def load(self, file_path: Path) -> None:
         pass
 
+    def get_state(self) -> dict:
+        return {}
+
+    def load_state(self, state: dict) -> None:
+        pass
+
     def fit(self, train_loader, val_loader=None) -> None:
         pass
 
