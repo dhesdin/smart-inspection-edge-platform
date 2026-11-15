@@ -3,6 +3,7 @@ data:
 
 params:
   backbone: resnet18
+  backbone_weights: IMAGENET1K_V1 # explicit torchvision weights name of the backbone
   layers: ["layer1", "layer2", "layer3"] # to adjust for memory cost.  [layer1,2,3] -> default value from Papers [64+128+256] = n dim
   seed: 42
   calibration_ratio: 0.2

@@ -43,3 +43,4 @@ outputs/*
 *.pt
 *.onnx
 *.engine
+outputs/figures/*.png

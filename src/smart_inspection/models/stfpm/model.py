@@ -11,6 +11,7 @@ from torchvision import models
 
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.models.base import AnomalyMethod
+from smart_inspection.models.weights import resolve_backbone_weights
 
 
 class STFPM(AnomalyMethod):
@@ -27,6 +28,7 @@ class STFPM(AnomalyMethod):
         # get params
         params_common = merge_yaml_dict["params"]
         param_backbone = params_common["backbone"]
+        param_backbone_weights = params_common["backbone_weights"]
         self.param_input_size = (
             params_common["input_size"],
             params_common["input_size"],
@@ -46,7 +48,7 @@ class STFPM(AnomalyMethod):
 
         # Teacher and Student models
         backbone = getattr(models, param_backbone)
-        self.teacher = backbone(weights="DEFAULT")
+        self.teacher = backbone(weights=resolve_backbone_weights(backbone=param_backbone, backbone_weights=param_backbone_weights))
         self.student = backbone(weights=None)
 
         # move models to device

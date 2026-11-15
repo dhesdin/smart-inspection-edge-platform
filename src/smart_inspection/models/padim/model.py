@@ -11,6 +11,7 @@ from torchvision.transforms.functional import gaussian_blur
 
 from smart_inspection.config.loader import merge_yaml, read_yaml, resolve_config_paths
 from smart_inspection.models.base import AnomalyMethod
+from smart_inspection.models.weights import resolve_backbone_weights
 
 
 class PaDiM(AnomalyMethod):
@@ -26,6 +27,7 @@ class PaDiM(AnomalyMethod):
         # get params
         params_common = merge_yaml_dict["params"]
         param_backbone = params_common["backbone"]
+        param_backbone_weights = params_common["backbone_weights"]
         self.param_n_features = params_common["n_features"]
         self.param_input_size = (params_common["input_size"], params_common["input_size"])
         self.param_sigma = params_common["sigma"]
@@ -39,7 +41,9 @@ class PaDiM(AnomalyMethod):
         self.layers = params_common["layers"]
         self.device = torch.device(params_common["device"] if torch.cuda.is_available() else "cpu")
         # load resnet
-        self.resnet = getattr(models, param_backbone)(weights="DEFAULT")
+        self.resnet = getattr(models, param_backbone)(
+            weights=resolve_backbone_weights(backbone=param_backbone, backbone_weights=param_backbone_weights)
+        )
 
         # device get attr
         self.resnet.to(self.device)

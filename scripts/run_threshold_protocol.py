@@ -7,6 +7,7 @@ from smart_inspection.data.splits import split_data
 from smart_inspection.evaluation.evaluate import evaluate
 from smart_inspection.evaluation.scores import collect_scores
 from smart_inspection.evaluation.threshold import compute_metrics, compute_threshold
+from smart_inspection.io.artifact import build_artifact, get_backbone, get_preprocessing, load_model_config, save_artifact
 from smart_inspection.io.run_id import get_run_id
 from smart_inspection.io.save_json import save_json
 from smart_inspection.models.factory import create_method
@@ -14,6 +15,7 @@ from smart_inspection.training.train import train
 
 # CONSTANTS
 CATEGORY_DATASET = "cable"
+PERCENTILE_METHOD = "linear"  # interpolation used by compute_threshold()
 
 
 def main() -> None:
@@ -30,6 +32,8 @@ def main() -> None:
     run_id = get_run_id(tag=f"threshold_protocol_{device}")
     reports_dir = common_yaml["paths"]["reports_dir"]
     models_dir = common_yaml["paths"]["models_dir"]
+    dataset_name = common_yaml["data"]["datasets"].name
+    preprocessing = get_preprocessing()
 
     # dataset
     train_good_dataset = AnomalyDataset(category=CATEGORY_DATASET, split="train")
@@ -78,6 +82,26 @@ def main() -> None:
             "max": float(calibration_score_array.max()),
             "n_scores_ge_threshold": int(np.sum(calibration_score_array >= threshold)),
         }
+        # deployment artifact: trained state + T + traceability, written once T is fixed
+        model_config = load_model_config(model_name=method_name)
+        artifact = build_artifact(
+            model_name=method_name,
+            category=CATEGORY_DATASET,
+            model_state=model.get_state(),
+            threshold=threshold,
+            model_config=model_config,
+            preprocessing=preprocessing,
+            backbone=get_backbone(backbone_name=model_config["backbone"], backbone_weights=model_config["backbone_weights"]),
+            run_id=run_id,
+            threshold_percentile=threshold_percentile,
+            calibration_count=len(calibration_idx),
+            threshold_method=PERCENTILE_METHOD,
+            dataset=dataset_name,
+            seed=seed,
+        )
+        artifact_path = models_dir / f"{run_id}_{method_name}_{CATEGORY_DATASET}.pt"
+        save_artifact(artifact=artifact, path=artifact_path)
+        print(f"Artifact saved to {artifact_path}")
         print(f"Collecting test scores and computing metrics for {method_name} using threshold {threshold}...")
         # collect test scores and compute metrics using the threshold
         test_scores, test_labels = collect_scores(method=model, dataset=test_dataset)
@@ -125,7 +149,7 @@ def main() -> None:
             "seed": seed,
             "batch_size": batch_size,
             "threshold_percentile": threshold_percentile,
-            "percentile_method": "linear",
+            "percentile_method": PERCENTILE_METHOD,
             "decision_rule": "score >= T",
         },
         "results": results,
